@@ -4,12 +4,24 @@
 
 **Blocked by:** None (can start immediately)
 
-- [ ] Supabase project created, region locked to `eu-west-1`
-- [ ] `profiles` table (`user_id`, `handle`, `created_at`) with Supabase Auth wired up
-- [ ] GitHub Actions pipeline runs `supabase db push` and `supabase functions deploy` on merge to `main`, gated by one manual GitHub Environments approval
-- [ ] CI-time secrets in GitHub encrypted repo secrets; runtime secrets (APNs `.p8`/Key ID/Team ID, Sentry DSN) set in Supabase Edge Function secrets via `supabase secrets set` from CI
-- [ ] Local dev works end-to-end via `supabase start`
-- [ ] iOS app target created with iOS 26 as the hard deployment minimum, no fallback tier
-- [ ] Sentry crash reporting and TelemetryDeck analytics both wired in and firing at least one real event
-- [ ] Sign-up flow: account creation, ToS click captured (contract-necessity basis, not a consent gate), lands on a home stub
-- [ ] A `profiles` row exists for the signed-up user, visible via Supabase dashboard or a debug query
+- [x] Supabase project created, region locked to `eu-west-1` (captured via wizard: project ref, URL, anon key, DB password all present in `.scratch/wake-mate/setup-wizard.env`)
+- [x] `profiles` table (`user_id`, `handle`, `created_at`) with Supabase Auth wired up (`supabase/migrations/20260911141557_initial_schema.sql` — RLS + `handle_new_user()` trigger on `auth.users` insert)
+- [x] GitHub Actions pipeline runs `supabase db push` and `supabase functions deploy` on merge to `main`, gated by one manual GitHub Environments approval (`.github/workflows/deploy-backend.yml` targets the `production` environment — **environment + required reviewer must still be confirmed created in the GitHub web UI**, see Held below)
+- [ ] CI-time secrets in GitHub encrypted repo secrets; runtime secrets (APNs `.p8`/Key ID/Team ID, Sentry DSN) set in Supabase Edge Function secrets via `supabase secrets set` from CI — **CI-time secrets (`SUPABASE_ACCESS_TOKEN`/`SUPABASE_PROJECT_ID`/`SUPABASE_DB_PASSWORD`) not verified as actually set in GitHub from this session** (no `gh` CLI, can't check remotely); runtime APNs secrets deliberately blank (ticket 18)
+- [ ] Local dev works end-to-end via `supabase start` — not exercised this session
+- [x] iOS app target created with iOS 26 as the hard deployment minimum, no fallback tier (`ios/project.yml` — `deploymentTarget: "26.0"` on app + test targets)
+- [ ] Sentry crash reporting and TelemetryDeck analytics both wired in and firing at least one real event — Sentry DSN is real and set; **TelemetryDeck is not** (see Held below); no event has actually fired since that needs a Mac/simulator run
+- [ ] Sign-up flow: account creation, ToS click captured (contract-necessity basis, not a consent gate), lands on a home stub — implemented in code (`SignUpView.swift`, `RootView.swift`) and compiles/passes unit tests in CI, but never run end-to-end on a simulator
+- [ ] A `profiles` row exists for the signed-up user, visible via Supabase dashboard or a debug query — unverified, blocked on the same Mac-access gap
+
+## Held / deferred (2026-09-11)
+
+Items the wizard walked through but that were deliberately or unavoidably left incomplete:
+
+- **Apple Developer account & App ID** — not created this session. `ios/project.yml` currently has `bundleIdPrefix: com.wakemate` / `PRODUCT_BUNDLE_IDENTIFIER: com.wakemate.app` as placeholders; these need to be reconciled with whatever bundle ID actually gets registered once the $99/yr Apple Developer account exists. Doesn't block CI (code signing is off in both workflows), but blocks TestFlight (ticket 02) and real push (ticket 18).
+- **TelemetryDeck** — account/app was not completed. **Bug found and fixed:** `ios/Secrets.xcconfig`'s `TELEMETRYDECK_APP_ID` had a stray wizard stage-banner string in it, and `SUPABASE_URL` in the same file had ~200 bytes of literal cursor-movement escape sequences (`[D`/`[C`/...) tacked onto the end. Root cause: `ask`/`ask_secret` in `setup-wizard.sh` used plain `read -r`, which doesn't do readline editing — an arrow-key press (or a paste containing cursor-movement bytes) got inserted as literal characters instead of moving the cursor. Fixed in `setup-wizard.sh`: `ask`/`ask_secret` now use `read -e` (readline editing handles arrow keys properly) plus a `_strip_control` backstop that strips any escape/control bytes that still get through; the TelemetryDeck stage also now validates the input looks like a UUID (or is explicitly skipped) before writing it anywhere. The corrupted values already sitting in the local (gitignored, uncommitted) `ios/Secrets.xcconfig` were repaired directly — `SUPABASE_URL` restored to the real value from `setup-wizard.env`, `TELEMETRYDECK_APP_ID` reset to the example placeholder since no real App ID was ever captured. Still need: a real TelemetryDeck account + App ID, captured by re-running stage 8.
+- **APNs secrets** (`APNS_AUTH_KEY_BASE64`, `APNS_KEY_ID`, `APNS_TEAM_ID`) — left blank in GitHub Actions secrets by design; scoped to ticket 18. Pipeline tolerates the empty values.
+- **`SENTRY_DSN_EDGE`** (backend Edge Functions crash reporting, separate from the client DSN) — left blank by design; scoped to ticket 12.
+- **GitHub CLI (`gh`)** — not installed on this machine, so every GitHub-side step (repo secrets, the `production` environment + required reviewer, confirming Actions runs went green) was walked manually through the web UI by the user rather than validated programmatically from this session. Worth a manual double-check that the `production` environment actually exists with a required reviewer before the first real merge to `main` triggers a backend deploy.
+- **Repo remote is misnamed** — `git remote -v` shows `origin` pointing at `https://github.com/luk3glennon/-https-github.com-lukeglennon-wake-mate.git` (an auto-generated slug from a pasted URL, not a clean repo name). Rename the GitHub repo to `wake-mate` via Settings → General, then update the local remote to `https://github.com/luk3glennon/wake-mate.git`.
+- **End-to-end verification** (sign-up flow actually running, `profiles` row appearing, Sentry/TelemetryDeck firing a real event) is blocked on ~30-60 min of one-time Mac access to run `xcodegen generate` and open the project in Xcode/Simulator — flagged in ios/README.md, still outstanding.

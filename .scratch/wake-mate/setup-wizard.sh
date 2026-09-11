@@ -105,6 +105,21 @@ _existing() {
   printf '%s' "${line#*=}"
 }
 
+# _strip_control removes ANSI/CSI escape sequences and other control bytes
+# from a captured value. Confirmed root cause of real corruption: plain
+# `read` (no `-e`) doesn't do readline line-editing, so pressing an arrow key
+# (or a paste that includes cursor-movement bytes) doesn't move the cursor —
+# it inserts the raw escape sequence as literal characters. `ask`/`ask_secret`
+# now read with `-e` so the terminal handles editing properly, but this stays
+# as a backstop for anything that still gets through (non-tty input, a paste
+# containing genuine escape bytes, etc.) so garbage can never silently reach
+# a `.env` file, a GitHub secret, or Secrets.xcconfig.
+_strip_control() {
+  local s
+  s=$(printf '%s' "$1" | LC_ALL=C sed -E 's/\x1b(\[[0-9;]*[a-zA-Z]|[A-Za-z])//g')
+  printf '%s' "$s" | tr -d '\000-\010\013\014\016-\037'
+}
+
 # ask KEY "Prompt" reads a value into $KEY. Offers the existing .env value as
 # a default on re-runs (Enter keeps it). Visible input (non-secret).
 ask() {
@@ -115,7 +130,8 @@ ask() {
   else
     printf '  %s%s%s ' "$BOLD" "$prompt" "$RESET"
   fi
-  read -r input || true
+  read -e -r input || true
+  input=$(_strip_control "$input")
   [[ -z "$input" && -n "$current" ]] && input="$current"
   printf -v "$key" '%s' "$input"
 }
@@ -129,8 +145,9 @@ ask_secret() {
   else
     printf '  %s%s%s ' "$BOLD" "$prompt" "$RESET"
   fi
-  read -rs input || true
+  read -e -rs input || true
   printf '\n'
+  input=$(_strip_control "$input")
   [[ -z "$input" && -n "$current" ]] && input="$current"
   printf -v "$key" '%s' "$input"
 }
