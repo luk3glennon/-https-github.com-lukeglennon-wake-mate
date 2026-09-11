@@ -1,4 +1,7 @@
-# Shell scripts must stay LF — they run on macOS/Linux (Xcode Cloud, GitHub
-# Actions macOS runners) even though this repo is authored on Windows; a
-# CRLF shebang line breaks real bash/sh there.
+# Shell scripts must stay LF even though this repo is authored on Windows —
+# real bash/sh chokes on CRLF regardless of platform. ios/ci_scripts/*.sh
+# runs on Xcode Cloud's macOS shell specifically; setup-wizard.sh had
+# silently picked up CRLF at some point (fixed by this file), which would
+# break it for anyone who runs it outside Git Bash's CRLF-tolerant shebang
+# handling (e.g. via WSL, or `bash setup-wizard.sh` on a Mac).
 *.sh text eol=lf

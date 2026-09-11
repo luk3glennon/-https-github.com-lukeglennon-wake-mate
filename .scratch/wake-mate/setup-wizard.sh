@@ -232,9 +232,9 @@ _xcconfig_set() {
   printf '  %s✓ wrote%s %s → ios/Secrets.xcconfig\n' "$GREEN" "$RESET" "$key"
 }
 
-TOTAL_STAGES=11
+TOTAL_STAGES=18
 
-banner "Wake Mate: foundation setup (ticket 01)"
+banner "Wake Mate: foundation + TestFlight setup (tickets 01-02)"
 
 # ── Stage 1: GitHub repo + push ────────────────────────────────────────────
 stage "GitHub repository"
@@ -434,5 +434,109 @@ step "Open WakeMate.xcodeproj, run on an iOS 26+ simulator."
 note "Nothing else in this setup requires repeating that — CI covers"
 note "'does it build' on every push after that."
 SKIPPED+=("one-time ~30-60min Mac session to run 'xcodegen generate' + Xcode")
+
+# ── Stage 12: Apple Developer Team ID ──────────────────────────────────────
+stage "Apple Developer Team ID"
+say "Xcode Cloud and automatic code signing (ticket 02) need your Team ID,"
+say "not just the bundle identifier from stage 6."
+open_url "https://developer.apple.com/account"
+step "Membership details (bottom of the sidebar) -> copy the 'Team ID'"
+step "(a 10-character alphanumeric string, e.g. A1B2C3D4E5)."
+ask APPLE_TEAM_ID "Paste your Apple Developer Team ID:"
+write_env APPLE_TEAM_ID "$APPLE_TEAM_ID"
+if [[ -n "${WAKEMATE_BUNDLE_ID:-}" ]]; then
+  note "bundle ID already captured in stage 6: $WAKEMATE_BUNDLE_ID"
+  note "(this must match ios/project.yml's PRODUCT_BUNDLE_IDENTIFIER)"
+fi
+
+# ── Stage 13: App Store Connect app record ─────────────────────────────────
+stage "App Store Connect app record"
+say "Xcode Cloud and TestFlight both need an app record to attach builds to."
+open_url "https://appstoreconnect.apple.com/apps"
+step "'+' -> New App."
+step "Platform: iOS. Bundle ID: pick the one registered under"
+step "$WAKEMATE_BUNDLE_ID (from stage 6) — if it's not in the dropdown yet,"
+step "register it first at:"
+open_url "https://developer.apple.com/account/resources/identifiers/list/bundleId"
+step "SKU: any internal string, e.g. wake-mate-ios. Name: Wake Mate."
+pause "Press Enter once the app record exists in App Store Connect:"
+
+# ── Stage 14: Xcode Cloud workflow (needs a Mac) ───────────────────────────
+stage "Xcode Cloud workflow: manual trigger + automatic signing"
+warn "This stage needs Xcode open on a Mac — fold it into the one-time Mac"
+warn "session from stage 11 if you haven't had it yet."
+say "In Xcode, with WakeMate.xcodeproj open:"
+step "Product menu -> Xcode Cloud -> Create Workflow."
+step "Grant Xcode Cloud access to this GitHub repo when prompted."
+step "Xcode proposes a default workflow (usually 'runs on every push to"
+step "main') — do NOT accept that. Edit the Start Condition: remove the"
+step "branch-change trigger entirely so the workflow only runs when someone"
+step "clicks 'Start Build' by hand. Every build spends an Apple Beta App"
+step "Review slot, so per-merge builds would burn through review quota."
+step "Environment tab -> Environment Variables: add SUPABASE_URL,"
+step "SUPABASE_ANON_KEY, SENTRY_DSN, TELEMETRYDECK_APP_ID (values are in"
+step "$ENV_FILE from stages 2/7/8 — copy them over by hand, this wizard"
+step "can't reach Xcode Cloud's settings). Mark each as Secret."
+step "Signing & Capabilities -> 'Automatically manage signing', team ="
+step "the Team ID from stage 12. This is what makes signing fully"
+step "automatic — nothing for you to store or rotate."
+pause "Press Enter once the workflow exists with a manual-only trigger, the four env vars, and automatic signing:"
+
+# ── Stage 15: Marketing version (process only, no automation) ─────────────
+stage "Marketing version bump (manual, every release)"
+say "Xcode Cloud auto-increments the *build* number via ci_post_clone.sh +"
+say "agvtool (already wired in — see ios/README.md). The *marketing*"
+say "version is never automated: bump it by hand before each release you"
+say "intend to ship, then run 'xcodegen generate' and commit."
+CURRENT_MARKETING_VERSION=$(grep -E '^\s*MARKETING_VERSION:' "$REPO_ROOT/ios/project.yml" | head -n1 | sed -E 's/.*"([^"]+)".*/\1/')
+note "ios/project.yml currently has MARKETING_VERSION: ${CURRENT_MARKETING_VERSION:-unknown}"
+pause "Press Enter to acknowledge (nothing else to capture here):"
+
+# ── Stage 16: External TestFlight group + tester ───────────────────────────
+stage "External TestFlight tester group"
+say "Internal-only testing (App Store Connect users on your team) isn't"
+say "enough for ticket 02 — it requires an *external* group."
+open_url "https://appstoreconnect.apple.com/apps"
+step "Your app -> TestFlight tab -> External Testing -> '+' next to Groups."
+step "Name it, e.g. 'External Testers'. This is what makes it external,"
+step "not internal-only."
+while true; do
+  ask TESTFLIGHT_TESTER_EMAIL "Email of one external tester to add to the group:"
+  [[ "$TESTFLIGHT_TESTER_EMAIL" =~ ^[^[:space:]@]+@[^[:space:]@]+\.[^[:space:]@]+$ ]] && break
+  warn "that doesn't look like an email address — got:"
+  warn "  '${TESTFLIGHT_TESTER_EMAIL:0:60}'"
+done
+write_env TESTFLIGHT_TESTER_EMAIL "$TESTFLIGHT_TESTER_EMAIL"
+step "Add $TESTFLIGHT_TESTER_EMAIL to the group."
+pause "Press Enter once the external group exists with that tester added:"
+
+# ── Stage 17: Trigger a build + submit Beta App Review ─────────────────────
+stage "First external build + Apple Beta App Review"
+step "Back in Xcode Cloud (App Store Connect -> your app -> Xcode Cloud, or"
+step "Xcode's Report Navigator -> Cloud tab), click 'Start Build' on the"
+step "workflow from stage 14 — it's manual-trigger, so nothing runs until"
+step "you click it."
+pause "Press Enter once the build has finished and appears under TestFlight:"
+step "TestFlight tab -> the build -> assign it to the External Testers group"
+step "from stage 16. This kicks off Apple Beta App Review: fill in export"
+step "compliance (uses encryption? almost certainly 'no' or HTTPS-exempt —"
+step "check current App Store Connect guidance), test information, and a"
+step "contact email."
+step "Submit for review."
+pause "Press Enter once Beta App Review shows 'Approved' for this build (usually within 24-48h):"
+
+# ── Stage 18: Confirm the external tester actually got in ──────────────────
+stage "Confirm external tester install"
+say "Ticket 02's actual bar: a real tester, off the dev's own machine,"
+say "installs and launches the app via TestFlight."
+step "Ask $TESTFLIGHT_TESTER_EMAIL to check for the TestFlight invite email,"
+step "install the TestFlight app if they don't have it, redeem the invite,"
+step "install Wake Mate, and launch it."
+if confirm "Did $TESTFLIGHT_TESTER_EMAIL confirm they installed and launched the app?"; then
+  note "ticket 02's bar is met — update the checklist in"
+  note ".scratch/wake-mate/build-issues/02-ios-testflight-distribution.md"
+else
+  SKIPPED+=("external tester install/launch confirmation for $TESTFLIGHT_TESTER_EMAIL")
+fi
 
 finish
