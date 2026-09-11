@@ -1,0 +1,25 @@
+# macOS
+.DS_Store
+
+# Claude Code session-local runtime state
+.claude/
+
+# Node (npx-fetched CLIs, any future tooling)
+node_modules/
+
+# Xcode / XcodeGen — the .xcodeproj and Info.plist are generated from
+# ios/project.yml (see ios/README.md), never hand-edited or committed.
+ios/*.xcodeproj/
+ios/WakeMate/Info.plist
+ios/DerivedData/
+ios/.build/
+ios/**/xcuserdata/
+ios/Secrets.xcconfig
+
+# Supabase CLI local state
+supabase/.branches
+supabase/.temp
+
+# Setup wizard's captured values (DB password, access token, DSNs) — never
+# committed, plaintext bookkeeping for local re-runs only.
+.scratch/wake-mate/setup-wizard.env

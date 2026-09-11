@@ -1,0 +1,84 @@
+name: iOS build
+
+# Proves the iOS app scaffold actually compiles, on Apple's own macOS cloud
+# runners — nobody working on this repo needs to own or rent a Mac just to
+# find out whether the app builds. See ios/README.md for why this exists.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "ios/**"
+      - ".github/workflows/ios-build.yml"
+  pull_request:
+    paths:
+      - "ios/**"
+      - ".github/workflows/ios-build.yml"
+  workflow_dispatch: {}
+
+jobs:
+  build:
+    name: Build + test (simulator)
+    runs-on: macos-15
+    defaults:
+      run:
+        working-directory: ios
+    steps:
+      - uses: actions/checkout@v4
+
+      # Bump this if the runner image doesn't have an Xcode version that
+      # ships the iOS 26 SDK yet (docs.github.com/actions -> macos runner
+      # image software lists the installed Xcode versions).
+      - name: Select Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: "26.0"
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      # Real Secrets.xcconfig (Supabase URL/anon key, Sentry DSN,
+      # TelemetryDeck app ID) is gitignored and never exists in CI — none
+      # of those values are load-bearing for "does it compile", so the
+      # committed placeholder is enough to generate and build the project.
+      - name: Write placeholder secrets config
+        run: cp Secrets.xcconfig.example Secrets.xcconfig
+
+      - name: Generate Xcode project
+        run: xcodegen generate
+
+      - name: Build for simulator
+        run: |
+          xcodebuild build \
+            -project WakeMate.xcodeproj \
+            -scheme WakeMate \
+            -destination "generic/platform=iOS Simulator" \
+            CODE_SIGNING_ALLOWED=NO
+
+      # Picks whatever simulator device the runner's pinned Xcode actually
+      # ships, instead of hardcoding a device name (e.g. "iPhone 17") that
+      # may not exist on this image — that would fail the whole job on a
+      # detail unrelated to whether the app itself builds correctly.
+      - name: Determine simulator destination
+        run: |
+          DESTINATION_NAME=$(xcodebuild -showdestinations \
+            -project WakeMate.xcodeproj \
+            -scheme WakeMate 2>/dev/null \
+            | grep "platform:iOS Simulator" \
+            | grep -v "platform:iOS Simulator, name:Any" \
+            | tail -1 \
+            | sed -E 's/.*name:([^,}]+).*/\1/' \
+            | xargs)
+          if [ -z "$DESTINATION_NAME" ]; then
+            echo "No iOS Simulator destination found on this runner image" >&2
+            exit 1
+          fi
+          echo "SIMULATOR_NAME=$DESTINATION_NAME" >> "$GITHUB_ENV"
+
+      - name: Run unit tests
+        run: |
+          xcodebuild test \
+            -project WakeMate.xcodeproj \
+            -scheme WakeMate \
+            -destination "platform=iOS Simulator,name=$SIMULATOR_NAME" \
+            CODE_SIGNING_ALLOWED=NO

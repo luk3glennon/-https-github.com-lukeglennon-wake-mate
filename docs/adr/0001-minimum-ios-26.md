@@ -1,0 +1,3 @@
+# Minimum supported iOS version: 26+, no fallback tier
+
+Wake Mate's wake-alarm reliability depends on Apple's AlarmKit framework (iOS 26+, see ticket 06) — no non-AlarmKit mechanism survives force-quit or overrides silent mode. We require iOS 26+ as a hard minimum rather than building a degraded fallback for older devices: a "wakes you up" app that sometimes silently fails to wake you up undermines the core promise worse than not installing at all, and a second, materially-worse code path isn't worth the cost for a solo-dev MVP. iOS 26 adoption (~79-87% of active iPhones as of mid-2026) is in line with where past major iOS versions plateaued at this post-launch age.

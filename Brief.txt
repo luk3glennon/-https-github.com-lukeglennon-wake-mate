@@ -1,0 +1,73 @@
+# Wake Mate - Social Alarm App
+
+## Description
+Wake Mate is a mobile app that aims to make waking up a more social and engaging experience. The core feature is the ability for users to record custom "alarm calls" (audio messages, songs, jokes, etc.) and send them to friends. Recipients can then set these recordings as their actual alarms, creating a unique and personalized wake-up experience each day.
+
+## Key Features
+
+### MVP
+- User accounts and authentication for friend connections and alarm sharing
+- Recording and sending custom alarms to friends
+- Receiving and setting custom alarms from friends
+- Saving sent and received alarms for later use
+- No content moderation or filtering for the MVP
+
+### Post-MVP
+- Premium alarm packs featuring content from celebrities, influencers, and sound designers
+- Subscription tiers (free and premium) for access to advanced features and content
+- Challenge-based features (e.g., set a task for friends to complete on wake-up)
+- Alarm analytics and insights
+- Virtual gift system to send alongside alarms
+
+## Monetization
+- Premium subscription tiers:
+  - Free Tier:
+    - Receive and set up to 2 custom alarms from friends
+    - Send up to 2 custom alarms to friends
+    - Basic alarm features (snooze, dismiss, etc.)
+  - Premium Monthly Tier ($7.99/month):
+    - Unlimited receiving and setting of custom alarms from friends
+    - Unlimited sending of custom alarms to friends
+    - Access to premium alarm packs (new packs added monthly)
+    - Exclusive themed alarm backgrounds and animations
+    - Advanced alarm features (custom snooze intervals, gradual volume increase, etc.)
+    - Ad-free experience
+  - Premium Yearly Tier ($79.99/year, ~20% discount):
+    - All features of the Premium Monthly Tier
+    - Exclusive yearly subscriber badge on profile
+    - Priority customer support
+    - Early access to new features and content
+- In-app purchases for premium alarm packs
+
+## Platforms
+- iOS (primary platform for initial prototype)
+- Android
+
+## Backend Infrastructure
+- Hybrid approach for alarm storage and sharing:
+  - Audio files stored locally on sender's device after recording
+  - When sharing, files are uploaded to temporary cloud storage and a download link is sent to the receiver
+  - Receiver's device downloads the file and stores it locally, cloud copy is deleted after a short expiration window
+- Specific technologies and third-party services TBD based on Claude Code recommendations
+
+## Timeline
+- 4-week target for initial testable prototype
+- Focus on core functionality of seamless sending, receiving, and setting of custom alarms
+
+## Legal & Privacy
+- Ensure compliance with GDPR and other relevant regulations
+- Develop clear privacy policy covering collection and use of user data
+- Implement secure encryption for all user data transmission and storage
+- Consult with legal professional to cover all necessary considerations
+
+## Branding
+- Current name: Wake Mate
+  - Open to other suggestions
+- Visual design direction TBD
+
+## Open Questions
+- Specific technologies and architecture for backend
+- Analytics and crash reporting tools to use
+- Detailed privacy policy and terms of service 
+- User onboarding flow and friend connection process
+- Alarm discovery and search functionality

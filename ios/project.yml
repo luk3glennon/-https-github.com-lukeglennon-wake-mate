@@ -1,0 +1,73 @@
+# XcodeGen spec — the .xcodeproj is generated from this file, not
+# hand-edited or committed (see ios/README.md). Run `xcodegen generate`
+# after editing this file or adding/removing source files.
+name: WakeMate
+options:
+  bundleIdPrefix: com.wakemate
+  deploymentTarget:
+    iOS: "26.0"
+  createIntermediateGroups: true
+
+packages:
+  Supabase:
+    url: https://github.com/supabase/supabase-swift
+    from: 2.0.0
+  Sentry:
+    url: https://github.com/getsentry/sentry-cocoa
+    from: 8.0.0
+  TelemetryDeck:
+    url: https://github.com/TelemetryDeck/SwiftSDK
+    from: 2.0.0
+
+targets:
+  WakeMate:
+    type: application
+    platform: iOS
+    deploymentTarget: "26.0"
+    sources:
+      - WakeMate
+    configFiles:
+      Debug: Secrets.xcconfig
+      Release: Secrets.xcconfig
+    info:
+      path: WakeMate/Info.plist
+      properties:
+        UILaunchScreen: {}
+        UIApplicationSceneManifest:
+          UIApplicationSupportsMultipleScenes: false
+        SUPABASE_URL: $(SUPABASE_URL)
+        SUPABASE_ANON_KEY: $(SUPABASE_ANON_KEY)
+        SENTRY_DSN: $(SENTRY_DSN)
+        TELEMETRYDECK_APP_ID: $(TELEMETRYDECK_APP_ID)
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.wakemate.app
+        MARKETING_VERSION: "1.0.0"
+        CURRENT_PROJECT_VERSION: "1"
+        SWIFT_VERSION: "6.0"
+        TARGETED_DEVICE_FAMILY: "1" # iPhone only for MVP
+    dependencies:
+      - package: Supabase
+        product: Supabase
+      - package: Sentry
+        product: Sentry
+      - package: TelemetryDeck
+        product: TelemetryDeck
+    scheme:
+      testTargets:
+        - WakeMateTests
+      gatherCoverageData: true
+
+  WakeMateTests:
+    type: bundle.unit-test
+    platform: iOS
+    deploymentTarget: "26.0"
+    sources:
+      - WakeMateTests
+    settings:
+      base:
+        SWIFT_VERSION: "6.0"
+    dependencies:
+      - target: WakeMate
+      - package: Supabase
+        product: Supabase

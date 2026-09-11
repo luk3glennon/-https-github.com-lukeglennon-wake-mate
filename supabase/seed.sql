@@ -1,0 +1,3 @@
+-- Referenced by supabase/config.toml's [db.seed] sql_paths. Empty for now —
+-- ticket 01 has no seed data requirement; add statements here as fixtures
+-- are needed for local dev.
