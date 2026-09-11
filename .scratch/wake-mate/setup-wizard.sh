@@ -8,6 +8,16 @@
 
 set -euo pipefail
 
+# Disable terminal "bracketed paste" mode (DECSET 2004) for the life of this
+# script. Terminals that enable it (mintty/Git Bash included) wrap every
+# pasted chunk in invisible ESC[200~ ... ESC[201~ markers so a readline-aware
+# prompt can tell paste from typing. This script's `read`/`read -s` calls are
+# plain and don't strip those markers, so they (and, apparently, stray
+# terminal redraw bytes) were landing as literal characters inside pasted
+# secrets — confirmed corrupting several values captured before this fix.
+printf '\e[?2004l'
+trap 'printf "\e[?2004h"' EXIT
+
 # ──────────────────────────────────────────────────────────────────────────
 # Wizard library: delightful, consistent UX, identical across every wizard.
 # ──────────────────────────────────────────────────────────────────────────
