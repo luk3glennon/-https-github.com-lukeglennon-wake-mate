@@ -13,4 +13,4 @@ git_branch("certificates")
 storage_mode("git")
 
 type("appstore")
-app_identifier(ENV["WAKEMATE_BUNDLE_ID"] || "com.wakemate.app")
+app_identifier(ENV["WAKEMATE_BUNDLE_ID"] || "com.wakemate.alarmcall")

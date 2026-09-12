@@ -31,3 +31,9 @@ supabase/.temp
 # Setup wizard's captured values (DB password, access token, DSNs) — never
 # committed, plaintext bookkeeping for local re-runs only.
 .scratch/wake-mate/setup-wizard.env
+
+# Apple App Store Connect API private key (.p8) — Apple only lets you
+# download this once, so it gets saved locally for safekeeping, but it must
+# never enter git history. Its base64 copy lives in setup-wizard.env above
+# instead, for pushing to GitHub as a secret.
+*.p8

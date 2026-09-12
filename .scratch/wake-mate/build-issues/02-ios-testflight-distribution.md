@@ -4,10 +4,10 @@
 
 **Blocked by:** 01 (Foundation: account creation + deploy pipeline)
 
-- [ ] GitHub Actions release pipeline (`ios-release.yml`) configured, manual trigger only (not per-merge) — code-complete, **unverified**: needs the Apple Developer account below before it can actually run
+- [ ] GitHub Actions release pipeline (`ios-release.yml`) configured, manual trigger only (not per-merge) — code-complete, all required secrets/variables now set in GitHub; **still unverified** — no real trigger of the workflow has happened yet
 - [x] Code signing fully automatic — nothing for the dev to store or rotate — Fastlane `match` creates the certificate/profile itself via the App Store Connect API (`ios/fastlane/Fastfile`, `ios/fastlane/Matchfile`); code-complete, unverified, no real Mac/Xcode step at any point
 - [x] Build number auto-incremented by the pipeline; marketing version bumped manually — code-complete (`ios/fastlane/Fastfile`'s `beta` lane runs `agvtool new-version -all "$GITHUB_RUN_NUMBER"`, `VERSIONING_SYSTEM: apple-generic` already set in `ios/project.yml`); **unverified** — no real pipeline run has happened yet to exercise it
-- [ ] TelemetryDeck app registered (**moved here from ticket 01 on 2026-09-12**) — TelemetryDeck's registration flow requires an App Store URL, which doesn't exist until the App Store Connect app record above is created; try registering once that record exists (unconfirmed whether the record alone is enough, or whether the app needs to be publicly live — find out when you get there)
+- [x] TelemetryDeck app registered (**moved here from ticket 01 on 2026-09-12**) — resolved 2026-09-12: TelemetryDeck's app-creation form did ask for an App Store URL as feared, but it turned out not to be a hard blocker (exact workaround not captured, but the dev got past it) and the app was created; App ID `39F2D925-0E69-4C83-826A-5173D8FEA4A2` captured and pushed as the `TELEMETRYDECK_APP_ID` GitHub secret
 - [ ] External TestFlight tester group created (not internal-only) — walkthrough written (wizard stage 16), not run: needs an App Store Connect app record, which needs stage 13 done first
 - [ ] Apple Beta App Review submitted and passed for the first external build — walkthrough written (wizard stage 17), not run: needs a real build from the pipeline
 - [ ] At least one external tester successfully installs and launches the app via TestFlight — walkthrough written (wizard stage 18), not run
@@ -25,19 +25,37 @@ Fastlane's `match` generates it via the App Store Connect API and stores it
 needed either. `ios/ci_scripts/ci_post_clone.sh` (Xcode Cloud's clone hook)
 is removed — dead code once Xcode Cloud left the picture.
 
-**Apple Developer Program enrollment has not happened yet** — the account
-doesn't exist, so this whole pipeline is code-complete but unverified. The
-credentials it needs are wired as placeholder GitHub secrets until then:
+**Apple Developer Program enrollment completed 2026-09-12** (Team ID
+`AS72RCKC5R`). The bundle ID had to change: `com.wakemate.app` was already
+taken by another developer (bundle IDs are globally unique across all of
+Apple, not just this account), so the project now uses
+`com.wakemate.alarmcall` everywhere (`ios/project.yml`,
+`ios/fastlane/Appfile`, `ios/fastlane/Matchfile`,
+`.scratch/wake-mate/setup-wizard.env`).
 
-- `APPLE_TEAM_ID`
-- `APP_STORE_CONNECT_API_KEY_ID`
-- `APP_STORE_CONNECT_API_ISSUER_ID`
-- `APP_STORE_CONNECT_API_KEY_CONTENT` (the `.p8` key, base64-encoded)
-- `MATCH_PASSWORD` (a passphrase Fastlane invents to encrypt the
-  certificate it stores)
-- `WAKEMATE_BUNDLE_ID=com.wakemate.app` is already known (not secret, not
-  blocked) and is now also pushed as a GitHub repository variable by the
-  wizard — see `.scratch/wake-mate/setup-wizard.env` (gitignored)
+`gh` (GitHub's command-line tool) isn't installed in this environment, so
+the wizard's automatic `set_secret`/`set_var` push couldn't run — every
+value below was set by hand instead, in the repo's Settings -> Secrets and
+variables -> Actions, and is now real (not placeholder):
+
+- `APPLE_TEAM_ID` = `AS72RCKC5R`
+- `APP_STORE_CONNECT_API_KEY_ID` = `SLY64XR3SL`
+- `APP_STORE_CONNECT_API_ISSUER_ID` = `0456db42-749a-45af-bea4-b1bef24d8f1b`
+- `APP_STORE_CONNECT_API_KEY_CONTENT` (the `.p8` key, base64-encoded —
+  Apple only allows downloading this key once; the original file is kept
+  locally, gitignored via the new `*.p8` rule, never committed)
+- `MATCH_PASSWORD` = a passphrase the dev invented, set
+- `TELEMETRYDECK_APP_ID` = `39F2D925-0E69-4C83-826A-5173D8FEA4A2`
+- `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SENTRY_DSN` — carried over from
+  ticket 01, also now pushed as real secrets
+- `WAKEMATE_BUNDLE_ID=com.wakemate.alarmcall` — pushed as a GitHub
+  repository **variable** (not secret)
+
+All required secrets/variables for `ios-release.yml` are now in place.
+The repo's Settings -> Actions -> General -> Workflow permissions was also
+set to "Read and write" (needed so `match` can push the `certificates`
+branch it creates). The pipeline has not been triggered yet — that's the
+next thing to do.
 
 Wizard stages 12-14 (`.scratch/wake-mate/setup-wizard.sh`) were rewritten
 for this flow — stage 14 in particular now walks through generating the
@@ -55,19 +73,19 @@ temp file, not part of the repo).
 Everything in this ticket beyond the pipeline's code itself is gated on
 Apple's own systems, which this session has no access to:
 
-- **Apple Developer Program enrollment** was never confirmed as actually
-  complete in ticket 01 (its Held section flagged this) — wizard stage 12
-  (Team ID), stage 13 (App Store Connect app record), and stage 14 (API
-  key + signing secrets) can't be run for real until it is.
-  `WAKEMATE_BUNDLE_ID=com.wakemate.app` was captured in ticket 01's stage
-  6, and happens to already match `ios/project.yml`'s
-  `PRODUCT_BUNDLE_IDENTIFIER` — but that's not confirmation the bundle ID
-  is actually registered with Apple, just that no reconciliation edit is
-  needed *if/when* it is.
-- **The release pipeline itself has never run** — it needs the stage
-  12-14 secrets to exist before `ios-release.yml` can do anything but fail
-  fast (the Fastfile's `require_env!` checks are deliberately loud about
-  this rather than producing a broken build silently).
+- **Apple Developer Program enrollment is now complete** (2026-09-12,
+  Team ID `AS72RCKC5R`) — this was the thing ticket 01's Held section
+  flagged as unconfirmed. Wizard stages 12-14 (Team ID, App Store Connect
+  app record, API key + signing secrets) are all done — see the pivot
+  section above for the full list of secrets now set. Stage 13 surfaced
+  that `com.wakemate.app` — the bundle ID carried over from ticket 01's
+  stage 6 — was already taken by another developer; the project has been
+  reconciled onto `com.wakemate.alarmcall` instead.
+- **The release pipeline itself has never run** — all the secrets
+  `ios-release.yml` needs now exist, but nobody has clicked "Run workflow"
+  yet (the Fastfile's `require_env!` checks would have failed fast and
+  loud if anything were still missing, rather than producing a broken
+  build silently — that path is now untested since everything's in place).
 - **TestFlight external group, Beta App Review submission, and the tester
   install confirmation** (stages 16-18) all chain off a real signed build
   existing — none of them can happen first.

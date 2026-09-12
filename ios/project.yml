@@ -41,7 +41,7 @@ targets:
         TELEMETRYDECK_APP_ID: $(TELEMETRYDECK_APP_ID)
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.wakemate.app
+        PRODUCT_BUNDLE_IDENTIFIER: com.wakemate.alarmcall
         MARKETING_VERSION: "1.0.0"
         CURRENT_PROJECT_VERSION: "1"
         # Lets `agvtool` (run from ios/fastlane/Fastfile's `beta` lane)

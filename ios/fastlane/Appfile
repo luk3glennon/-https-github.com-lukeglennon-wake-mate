@@ -3,7 +3,7 @@
 # APPLE_TEAM_ID secret — see .github/workflows/ios-release.yml). The
 # fallback bundle id matches project.yml's current placeholder so local
 # `fastlane` invocations don't hard-fail before the real one is registered.
-app_identifier(ENV["WAKEMATE_BUNDLE_ID"] || "com.wakemate.app")
+app_identifier(ENV["WAKEMATE_BUNDLE_ID"] || "com.wakemate.alarmcall")
 team_id(ENV["APPLE_TEAM_ID"])
 
 # No `apple_id` here deliberately: every Fastlane action in this pipeline
