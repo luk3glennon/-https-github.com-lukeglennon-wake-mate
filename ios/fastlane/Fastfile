@@ -37,6 +37,14 @@ platform :ios do
     bundle_id = ENV["WAKEMATE_BUNDLE_ID"] || "com.wakemate.alarmcall"
     team_id = require_env!("APPLE_TEAM_ID")
 
+    # Creates a throwaway, unlocked keychain for match to import the
+    # distribution certificate into. Without it match falls back to the
+    # runner's login keychain, whose password it doesn't have — hence the
+    # "Could not configure imported keychain item (certificate) to prevent
+    # UI permission popup" warnings, which become a hang or a signing
+    # failure once codesign actually needs the private key.
+    setup_ci if ENV["CI"]
+
     # Authenticates every following action (match, build_app,
     # upload_to_testflight) against the App Store Connect API — no Apple ID
     # password or 2FA prompt, which is what makes this runnable unattended.
