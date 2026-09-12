@@ -93,6 +93,8 @@ private final class MockAuthService: AuthServicing, @unchecked Sendable {
         }
     }
 
+    func signIn(email: String, password: String) async throws {}
+
     func signOut() async throws {}
 
     var session: Session? {

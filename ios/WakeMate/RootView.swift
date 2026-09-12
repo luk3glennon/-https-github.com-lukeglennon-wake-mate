@@ -4,16 +4,23 @@ import Supabase
 struct RootView: View {
     @StateObject private var appState: AppState
 
-    init(authService: AuthServicing) {
-        _appState = StateObject(wrappedValue: AppState(authService: authService))
+    init(authService: AuthServicing, friendService: FriendServicing) {
+        _appState = StateObject(wrappedValue: AppState(authService: authService, friendService: friendService))
     }
 
     var body: some View {
         Group {
-            if let session = appState.session {
-                HomeView(session: session, onSignOut: appState.signOut)
-            } else {
-                SignUpView(authService: appState.authService)
+            switch appState.flow {
+            case .authGate:
+                AuthGateView(
+                    authService: appState.authService,
+                    onSignUpAttempt: appState.markUpcomingSessionAsFreshSignUp,
+                    onSignInAttempt: appState.markUpcomingSessionAsReturningUser
+                )
+            case .friendOnboarding:
+                FriendOnboardingView(friendService: appState.friendService, onFinish: appState.finishFriendOnboarding)
+            case .home(let session):
+                HomeView(session: session, friendService: appState.friendService, onSignOut: appState.signOut)
             }
         }
         .task { await appState.start() }
@@ -22,23 +29,56 @@ struct RootView: View {
 
 @MainActor
 final class AppState: ObservableObject {
-    @Published private(set) var session: Session?
-    let authService: AuthServicing
+    enum Flow {
+        case authGate
+        case friendOnboarding
+        case home(Session)
+    }
 
-    init(authService: AuthServicing) {
+    @Published private(set) var flow: Flow = .authGate
+    let authService: AuthServicing
+    let friendService: FriendServicing
+
+    private var session: Session?
+    // Set before sign-up/sign-in even starts (not after), so it can never
+    // race observeAuthState() emitting the new session first — see
+    // SignUpView.onSignUpAttempt.
+    private var needsFriendOnboarding = false
+
+    init(authService: AuthServicing, friendService: FriendServicing) {
         self.authService = authService
+        self.friendService = friendService
     }
 
     func start() async {
-        // observeAuthState() emits the current session immediately (see
-        // AuthServicing's doc comment), so a separate initial fetch would
-        // just duplicate that first emission.
         for await newSession in authService.observeAuthState() {
             session = newSession
+            recomputeFlow()
         }
+    }
+
+    func markUpcomingSessionAsFreshSignUp() {
+        needsFriendOnboarding = true
+    }
+
+    func markUpcomingSessionAsReturningUser() {
+        needsFriendOnboarding = false
+    }
+
+    func finishFriendOnboarding() {
+        needsFriendOnboarding = false
+        recomputeFlow()
     }
 
     func signOut() {
         Task { try? await authService.signOut() }
+    }
+
+    private func recomputeFlow() {
+        guard let session else {
+            flow = .authGate
+            return
+        }
+        flow = needsFriendOnboarding ? .friendOnboarding : .home(session)
     }
 }

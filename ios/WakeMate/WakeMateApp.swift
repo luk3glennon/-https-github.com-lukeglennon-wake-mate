@@ -6,6 +6,7 @@ import TelemetryDeck
 @main
 struct WakeMateApp: App {
     private let authService: AuthServicing
+    private let friendService: FriendServicing
 
     init() {
         SentrySDK.start { options in
@@ -21,11 +22,12 @@ struct WakeMateApp: App {
 
         let client = SupabaseClient(supabaseURL: AppConfig.supabaseURL, supabaseKey: AppConfig.supabaseAnonKey)
         authService = SupabaseAuthService(client: client)
+        friendService = SupabaseFriendService(client: client)
     }
 
     var body: some Scene {
         WindowGroup {
-            RootView(authService: authService)
+            RootView(authService: authService, friendService: friendService)
         }
     }
 }

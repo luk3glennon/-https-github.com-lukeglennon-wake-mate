@@ -13,50 +13,74 @@ partial/directory search, no auto-created connections.
 > deliberately, since renaming it breaks the references in tickets 01 and 02
 > for no gain.
 
-## Sign-in (do this first)
+## Sign-in
 
-It gates everything else in this ticket: you cannot test two accounts
-befriending each other if you cannot get back into either of them.
-
-- [ ] A sign-in screen exists, reachable from the sign-up screen and vice versa
-- [ ] `AuthServicing` gains `signIn(email:password:)`, implemented on `SupabaseAuthService` via `client.auth.signIn(email:password:)`
-- [ ] `RootView` grows a third state — it currently renders `SignUpView` when there's no session and `HomeView` when there is, with nothing in between
-- [ ] Wrong email/password surfaces a readable error rather than failing silently
-- [ ] Password reset — decide whether it's in scope here or deferred; without it a forgotten password is still a dead end. Supabase Auth has `resetPasswordForEmail`, but it needs a redirect target and `site_url` is still `http://127.0.0.1:3000` in `supabase/config.toml`
-- [ ] Unit tests alongside `WakeMateTests/SignUpViewModelTests.swift`
-
-### Why this is urgent rather than merely missing
-
-Found 2026-09-12 while filling in Apple's Beta App Review details for ticket
-02 — Apple asks for a working username/password so its reviewer can sign in,
-which surfaced that there is nowhere to sign *in*.
-
-`HomeView` has a sign-out button, and pressing it strands the user
-permanently. Their only route back is a second account under a different
-email, which also orphans the `profiles` row from the first. Reinstalling the
-app, or anything that clears the stored session, does the same.
-
-It was missed because ticket 01's checklist only ever asked that a user can
-*sign up* and land on the home stub, which is genuinely all that was built.
-
-The first external TestFlight build ships without this. That should still pass
-review — the reviewer notes tell Apple's reviewer to create an account rather
-than sign in, sign-up is open, and the hosted Supabase project has
-`mailer_autoconfirm` on so accounts activate immediately. But the first real
-external tester will hit the sign-out trap, which is why this sits at the top
-of the ticket.
+- [x] A sign-in screen exists (`SignInView.swift`), reachable from the sign-up
+      screen and vice versa via `AuthGateView.swift`, which toggles between them
+- [x] `AuthServicing` gains `signIn(email:password:)`, implemented on
+      `SupabaseAuthService` via `client.auth.signIn(email:password:)`
+- [x] `RootView` grows a third state (`AppState.Flow`: `authGate` /
+      `friendOnboarding` / `home`) — the "nothing in between" gap is now the
+      friend-onboarding step below, not a second auth screen
+- [x] Wrong email/password surfaces a readable error (`SignInViewModel.errorMessage`,
+      rendered in `SignInView`) rather than failing silently
+- [x] Unit tests alongside `WakeMateTests/SignInViewModelTests.swift`
+- [ ] **Password reset — deferred, not built.** `resetPasswordForEmail` needs a
+      redirect target, and `supabase/config.toml`'s `site_url` is still
+      `http://127.0.0.1:3000` with no real deep-link handling in the iOS app to
+      catch that redirect. Building this now would mean standing up URL-scheme
+      or universal-link handling just for this one flow. A forgotten password
+      is still a dead end until this is picked up — flagging as a real gap,
+      not silently dropped.
 
 ## Friend discovery & connection
 
-- [ ] `friend_connections` table with `requester_id`/`addressee_id`/`status` (`pending`/`accepted`/`declined`) and the normalized-pair unique index preventing duplicate/reverse requests
-- [ ] Exact-handle-only search (no partial match, no directory/enumeration surface)
-- [ ] Personal, reusable Invite Link per user; resolving one never auto-creates the connection — same explicit accept step as search
-- [ ] Onboarding sequence implemented: account creation → invite/search screen (Inline Minimal layout: compact single column, Skip always available, Invite Link as a prominent inline row) → pending-request accept/decline (shown only when arriving via a resolved Invite Link) → home
-- [ ] Two test accounts can become mutual friends via handle search
-- [ ] Two test accounts can become mutual friends via an Invite Link, including the organic-signup path correctly skipping the accept/decline step
+- [x] `friend_connections` table with `requester_id`/`addressee_id`/`status`
+      (`pending`/`accepted`/`declined`) and the normalized-pair unique index
+      preventing duplicate/reverse requests (`supabase/migrations/20260912120000_friend_connections.sql`)
+- [x] Exact-handle-only search — `search_profile_by_handle` RPC, single exact
+      match only, no partial match or listing surface
+- [x] Personal, reusable invite code per user (`profiles.invite_code`,
+      generated at signup same as `handle`); resolving one
+      (`resolve_invite_code` RPC) is a pure read and never creates a
+      connection — only the explicit Accept tap (`accept_invite` RPC) does,
+      and it lands the connection already `accepted` in one step. Decline
+      makes no network call at all.
+- [x] Onboarding sequence implemented: account creation → invite/search screen
+      (`FriendOnboardingView`, Inline Minimal layout: compact single column,
+      Skip always available, invite code row prominent) → pending
+      accept/decline screen (shown only once a pasted code actually resolves)
+      → home
+- [ ] Two test accounts can become mutual friends via handle search — code
+      complete (search → `HomeView`'s new "Friend requests" section for the
+      other side to accept/decline), **not run end-to-end**, same Mac/device
+      gap as ticket 01
+- [ ] Two test accounts can become mutual friends via an Invite Link,
+      including the organic-signup path correctly skipping the accept/decline
+      step — code complete, **not run end-to-end**
+
+## Scope decision: invite "link" is a pasted code, not a tappable link (2026-09-12)
+
+What's built is a short invite **code** each user can read off their own
+screen and hand to a friend, who pastes it into a field to resolve it. A real
+tappable link (`https://wakemate.app/invite/abc123` opening the app directly)
+needs Associated Domains + a hosted `apple-app-site-association` file, which
+needs a real domain — none of which exists yet. Wiring that is a reasonable
+follow-up once a domain exists, but the underlying accept/decline mechanics
+(the actual hard part) are already in place and don't change when that lands
+— only how the code gets from A's screen into B's hands changes.
+
+## Held / deferred (2026-09-12)
+
+- **Password reset** — see above; not built.
+- **Real tappable Invite Links** — see scope decision above; code-paste only for now.
+- **End-to-end verification** (two real accounts actually befriending each
+  other via both paths, sign-in actually working) — not run this session,
+  same gap ticket 01 and 02 flagged: needs either a Mac/simulator session or
+  a real TestFlight build via ticket 02's pipeline once that's unblocked.
 
 ## Testing note
 
 Two accounts means two devices or one device and a simulator — and with
 sign-in built, one device is enough: sign out of A, sign in as B. That is the
-second reason to do sign-in first.
+second reason sign-in was done first.

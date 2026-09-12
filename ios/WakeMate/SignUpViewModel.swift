@@ -36,15 +36,20 @@ final class SignUpViewModel: ObservableObject {
             && !isSubmitting
     }
 
-    func submit() async {
-        guard canSubmit, let tosAcceptedAt else { return }
+    /// Returns true on success so the caller can advance past the auth
+    /// gate; false (with errorMessage set) leaves the user on this screen.
+    @discardableResult
+    func submit() async -> Bool {
+        guard canSubmit, let tosAcceptedAt else { return false }
         isSubmitting = true
         errorMessage = nil
         defer { isSubmitting = false }
         do {
             try await authService.signUp(email: email, password: password, tosAcceptedAt: tosAcceptedAt)
+            return true
         } catch {
             errorMessage = error.localizedDescription
+            return false
         }
     }
 

@@ -3,9 +3,16 @@ import SwiftUI
 struct SignUpView: View {
     @StateObject private var viewModel: SignUpViewModel
     @State private var showingTerms = false
+    /// Called synchronously the moment sign-up is attempted, before the
+    /// network call — not on success. This lets AppState mark "the next
+    /// session that appears came from a fresh sign-up" without racing
+    /// AuthServicing's auth-state stream, which can emit the new session
+    /// before this view's own `submit()` call returns.
+    let onSignUpAttempt: () -> Void
 
-    init(authService: AuthServicing) {
+    init(authService: AuthServicing, onSignUpAttempt: @escaping () -> Void) {
         _viewModel = StateObject(wrappedValue: SignUpViewModel(authService: authService))
+        self.onSignUpAttempt = onSignUpAttempt
     }
 
     var body: some View {
@@ -49,6 +56,7 @@ struct SignUpView: View {
             }
 
             Button {
+                onSignUpAttempt()
                 Task { await viewModel.submit() }
             } label: {
                 Group {

@@ -5,6 +5,7 @@ import Supabase
 /// without hitting a network — see WakeMateTests/SignUpViewModelTests.swift.
 protocol AuthServicing: Sendable {
     func signUp(email: String, password: String, tosAcceptedAt: Date) async throws
+    func signIn(email: String, password: String) async throws
     func signOut() async throws
     var session: Session? { get async }
     /// Emits the current session immediately, then again on every auth
@@ -30,6 +31,10 @@ final class SupabaseAuthService: AuthServicing {
             password: password,
             data: ["tos_accepted_at": .string(ISO8601DateFormatter().string(from: tosAcceptedAt))]
         )
+    }
+
+    func signIn(email: String, password: String) async throws {
+        _ = try await client.auth.signIn(email: email, password: password)
     }
 
     func signOut() async throws {
