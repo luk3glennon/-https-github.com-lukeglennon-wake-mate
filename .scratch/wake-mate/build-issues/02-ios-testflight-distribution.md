@@ -4,12 +4,12 @@
 
 **Blocked by:** 01 (Foundation: account creation + deploy pipeline)
 
-- [ ] GitHub Actions release pipeline (`ios-release.yml`) configured, manual trigger only (not per-merge) — **builds and signs successfully as of 2026-09-12** (see "First real runs" below); the upload step has not yet succeeded, blocked on the app icon
+- [x] GitHub Actions release pipeline (`ios-release.yml`) configured, manual trigger only (not per-merge) — **verified end-to-end 2026-09-12**: builds, signs, uploads, and the build reached App Store Connect (build `4`, `processingState: VALID`). Took six attempts to get there — see "First real runs" below
 - [x] Code signing fully automatic — nothing for the dev to store or rotate — Fastlane `match` creates the certificate/profile itself via the App Store Connect API (`ios/fastlane/Fastfile`, `ios/fastlane/Matchfile`); **verified 2026-09-12** — `match` created the distribution certificate and App Store profile, stored them on the `certificates` branch, and a signed `.ipa` was produced, with no local Mac/Xcode step at any point
 - [x] Build number auto-incremented by the pipeline; marketing version bumped manually — **verified 2026-09-12** (`agvtool new-version -all "$GITHUB_RUN_NUMBER"` in `ios/fastlane/Fastfile`'s `beta` lane ran in a successful archive)
 - [x] TelemetryDeck app registered (**moved here from ticket 01 on 2026-09-12**) — resolved 2026-09-12: TelemetryDeck's app-creation form did ask for an App Store URL as feared, but it turned out not to be a hard blocker (exact workaround not captured, but the dev got past it) and the app was created; App ID `39F2D925-0E69-4C83-826A-5173D8FEA4A2` captured and pushed as the `TELEMETRYDECK_APP_ID` GitHub secret
-- [ ] External TestFlight tester group created (not internal-only) — walkthrough written (wizard stage 16), not run: needs an App Store Connect app record, which needs stage 13 done first
-- [ ] Apple Beta App Review submitted and passed for the first external build — walkthrough written (wizard stage 17), not run: needs a real build from the pipeline
+- [x] External TestFlight tester group created (not internal-only) — **done 2026-09-12**: group "External Testers" (`isInternalGroup: false`), one tester added, currently `NOT_INVITED` (invites don't send until a build is attached). Created via the App Store Connect API, not the web UI — see "Finishing TestFlight setup" below
+- [ ] Apple Beta App Review submitted and passed for the first external build — everything it requires is now filled in (export compliance, Test Information, review contact, reviewer notes); the remaining action is attaching build `4` to the External Testers group, which is what triggers both the review submission and the tester invite
 - [ ] At least one external tester successfully installs and launches the app via TestFlight — walkthrough written (wizard stage 18), not run
 
 ## Pipeline pivot (2026-09-12): Xcode Cloud replaced with GitHub Actions + Fastlane
@@ -123,6 +123,45 @@ One warning is still unexplained and was worked around rather than fixed:
 `[Xcodeproj] Consistency issue: no parent for object 'Secrets.xcconfig'`,
 emitted by the `xcodeproj` gem while gym inspects the generated project. It
 has not caused an observed failure.
+
+## Finishing TestFlight setup (2026-09-12)
+
+**"External Testing" never appears in App Store Connect until the beta
+paperwork is complete.** This looks exactly like a broken/ineligible
+build and sends you hunting in the wrong direction — the popular advice
+online is that the build was distributed with the wrong Xcode export
+method, which cannot apply to this project at all (there is no Xcode, and
+`build_app`'s `export_method` is already `app-store`).
+
+What was actually missing, all four blank:
+
+- export compliance unanswered on the build (`usesNonExemptEncryption: null`)
+- no beta groups of any kind
+- `betaAppReviewDetail` entirely empty (contact name/email/phone)
+- no `betaAppLocalizations` (Test Information: feedback email + description)
+
+All four were filled via the App Store Connect REST API rather than the
+web UI. The credential is the same `AuthKey_<KEYID>.p8` the pipeline
+already uses (`.scratch/wake-mate/`, gitignored), and the request just
+needs an ES256 JWT — `openssl` can sign it, so no Ruby/Python is needed.
+Signing gotcha: `openssl dgst -sign` emits a DER `SEQUENCE{r,s}`, which
+has to be converted to raw `r||s` with each half zero-padded to 32 bytes
+before base64url-encoding, or Apple rejects the token. Also pass `curl -g`,
+since the API's `filter[...]` query params otherwise trip curl's globbing.
+
+Useful identifiers (not secret):
+
+- app id `6811360354`
+- build `4` id `c5fcca18-a381-4c5a-9168-640595286677`
+- beta group "External Testers" id `ad198acf-f704-4184-8d8f-1d805b14e780`
+
+Two related facts worth keeping: the hosted Supabase project has
+`mailer_autoconfirm` on (readable from `<SUPABASE_URL>/auth/v1/settings`,
+which is unauthenticated), so sign-up needs no confirmation email and
+Apple's reviewer can self-register — hence `demoAccountRequired: false`
+and a reviewer note explaining it, rather than inventing credentials
+(Apple actually tries them). Checking that also surfaced that the app has
+no sign-in screen at all — written up as ticket 09.
 
 ## Held / deferred (2026-09-12)
 
