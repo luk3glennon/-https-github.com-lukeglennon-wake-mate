@@ -6,14 +6,24 @@ import Supabase
 /// later tickets. The pending-requests list below is ticket 03's: it's the
 /// only place a handle-search-based request (as opposed to an invite link,
 /// which resolves to 'accepted' immediately) can actually be accepted.
+///
+/// "Add a Friend" reopens FriendOnboardingView's search/invite-code screen
+/// as a sheet — that screen only auto-appears once, right after a fresh
+/// sign-up (see RootView's Flow), so a returning user who already has an
+/// account (i.e. every real test of this feature, per the Testing note in
+/// ticket 03) would otherwise have no way back into it. Found 2026-09-12
+/// when a real sign-in landed on this screen with nothing but Sign Out.
 struct HomeView: View {
     @StateObject private var viewModel: HomeViewModel
     let session: Session
+    let friendService: FriendServicing
     let onSignOut: () -> Void
+    @State private var isAddingFriend = false
 
     init(session: Session, friendService: FriendServicing, onSignOut: @escaping () -> Void) {
         _viewModel = StateObject(wrappedValue: HomeViewModel(friendService: friendService))
         self.session = session
+        self.friendService = friendService
         self.onSignOut = onSignOut
     }
 
@@ -27,6 +37,10 @@ struct HomeView: View {
             Text(session.user.email ?? "")
                 .font(.footnote)
                 .foregroundStyle(.secondary)
+
+            Button("Add a Friend") { isAddingFriend = true }
+                .buttonStyle(.borderedProminent)
+                .padding(.top, 8)
 
             if !viewModel.pendingRequests.isEmpty {
                 VStack(alignment: .leading, spacing: 8) {
@@ -60,5 +74,8 @@ struct HomeView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .task { await viewModel.loadPendingRequests() }
+        .sheet(isPresented: $isAddingFriend) {
+            FriendOnboardingView(friendService: friendService, onFinish: { isAddingFriend = false })
+        }
     }
 }

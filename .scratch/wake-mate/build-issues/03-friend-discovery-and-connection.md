@@ -51,13 +51,22 @@ partial/directory search, no auto-created connections.
       Skip always available, invite code row prominent) → pending
       accept/decline screen (shown only once a pasted code actually resolves)
       → home
+- [x] `HomeView` gains a permanent "Add a Friend" button that reopens
+      `FriendOnboardingView` as a sheet. Without it, that screen was only
+      ever reachable once, automatically, right after a brand-new sign-up
+      (`RootView`'s `Flow.friendOnboarding`) — a returning user signing back
+      into an existing account had no way back into it at all, which is
+      exactly the case the Testing note below describes ("sign out of A,
+      sign in as B"). Found 2026-09-12 during real-device end-to-end
+      testing: signing in landed on a bare "You're all set" / Sign Out
+      screen with no way to add a friend.
 - [ ] Two test accounts can become mutual friends via handle search — code
       complete (search → `HomeView`'s new "Friend requests" section for the
-      other side to accept/decline), **not run end-to-end**, same Mac/device
-      gap as ticket 01
+      other side to accept/decline), **not yet confirmed end-to-end** on a
+      real device
 - [ ] Two test accounts can become mutual friends via an Invite Link,
       including the organic-signup path correctly skipping the accept/decline
-      step — code complete, **not run end-to-end**
+      step — code complete, **not yet confirmed end-to-end** on a real device
 
 ## Scope decision: invite "link" is a pasted code, not a tappable link (2026-09-12)
 
