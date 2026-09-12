@@ -1,0 +1,78 @@
+# Replaces the Xcode Cloud pipeline (ticket 02 pivot, 2026-09-12): builds,
+# signs, and uploads to TestFlight from GitHub's macOS cloud runners, with
+# no local Mac/Xcode step at any point, including certificate creation —
+# see .github/workflows/ios-release.yml (the only caller; manual trigger
+# only, never on push) and ios/README.md.
+
+default_platform(:ios)
+
+# Absolute path to ios/ (this file lives in ios/fastlane/) — actions below
+# are given explicit paths rather than relying on Fastlane's cwd, which
+# differs by action/version.
+PROJECT_ROOT = File.expand_path("..", __dir__)
+
+# xcconfig treats an unescaped "//" as a comment start, which breaks URLs;
+# "$()" is an empty build setting that splits the slashes apart so Xcode
+# doesn't read the rest of the line as a comment. Same trick as
+# Secrets.xcconfig.example and the retired ci_post_clone.sh.
+def escape_url(value)
+  value.to_s.gsub("://", ":/$()/")
+end
+
+def require_env!(name)
+  value = ENV[name]
+  UI.user_error!("#{name} not set — this must be supplied as a GitHub Actions secret/variable") if value.to_s.empty?
+  value
+end
+
+platform :ios do
+  desc "Build a signed release and upload it to TestFlight"
+  lane :beta do
+    supabase_url = require_env!("SUPABASE_URL")
+    supabase_anon_key = require_env!("SUPABASE_ANON_KEY")
+    sentry_dsn = require_env!("SENTRY_DSN")
+    telemetrydeck_app_id = require_env!("TELEMETRYDECK_APP_ID")
+    build_number = require_env!("GITHUB_RUN_NUMBER")
+
+    UI.message("Writing Secrets.xcconfig from CI environment variables...")
+    File.write(File.join(PROJECT_ROOT, "Secrets.xcconfig"), <<~XCCONFIG)
+      SUPABASE_URL = #{escape_url(supabase_url)}
+      SUPABASE_ANON_KEY = #{supabase_anon_key}
+      SENTRY_DSN = #{escape_url(sentry_dsn)}
+      TELEMETRYDECK_APP_ID = #{telemetrydeck_app_id}
+    XCCONFIG
+
+    UI.message("Generating Xcode project...")
+    sh("cd '#{PROJECT_ROOT}' && xcodegen generate")
+
+    UI.message("Stamping build number from GITHUB_RUN_NUMBER (#{build_number})...")
+    # Needs VERSIONING_SYSTEM = apple-generic on the target (project.yml)
+    # and an already-generated project, same as the retired
+    # ci_post_clone.sh's agvtool call — just driven by GitHub's run number
+    # instead of Xcode Cloud's CI_BUILD_NUMBER.
+    sh("cd '#{PROJECT_ROOT}' && agvtool new-version -all #{build_number}")
+
+    # Authenticates every following action (match, build_app,
+    # upload_to_testflight) against the App Store Connect API — no Apple ID
+    # password or 2FA prompt, which is what makes this runnable unattended.
+    app_store_connect_api_key(
+      key_id: require_env!("APP_STORE_CONNECT_API_KEY_ID"),
+      issuer_id: require_env!("APP_STORE_CONNECT_API_ISSUER_ID"),
+      key_content: require_env!("APP_STORE_CONNECT_API_KEY_CONTENT"),
+      is_key_content_base64: true,
+    )
+
+    # Creates the distribution certificate + provisioning profile on first
+    # run, reuses them (from the `certificates` branch, see Matchfile) on
+    # every run after — nothing for a developer to store or rotate by hand.
+    match(type: "appstore", readonly: false)
+
+    build_app(
+      project: File.join(PROJECT_ROOT, "WakeMate.xcodeproj"),
+      scheme: "WakeMate",
+      export_method: "app-store",
+    )
+
+    upload_to_testflight(skip_waiting_for_build_processing: true)
+  end
+end

@@ -16,6 +16,14 @@ ios/.build/
 ios/**/xcuserdata/
 ios/Secrets.xcconfig
 
+# Fastlane's own local run artifacts (reports, logs) — the certificate/
+# profile it manages live in the `certificates` git branch instead (see
+# ios/fastlane/Matchfile), never here.
+ios/fastlane/report.xml
+ios/fastlane/Preview.html
+ios/fastlane/screenshots/
+ios/fastlane/test_output/
+
 # Supabase CLI local state
 supabase/.branches
 supabase/.temp

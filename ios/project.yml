@@ -44,9 +44,9 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.wakemate.app
         MARKETING_VERSION: "1.0.0"
         CURRENT_PROJECT_VERSION: "1"
-        # Lets `agvtool` (run from ios/ci_scripts/ci_post_clone.sh) stamp
-        # CURRENT_PROJECT_VERSION with Xcode Cloud's CI_BUILD_NUMBER on
-        # every Xcode Cloud build — see ticket 02.
+        # Lets `agvtool` (run from ios/fastlane/Fastfile's `beta` lane)
+        # stamp CURRENT_PROJECT_VERSION with GitHub Actions' run number on
+        # every TestFlight release build — see ticket 02.
         VERSIONING_SYSTEM: apple-generic
         SWIFT_VERSION: "6.0"
         TARGETED_DEVICE_FAMILY: "1" # iPhone only for MVP

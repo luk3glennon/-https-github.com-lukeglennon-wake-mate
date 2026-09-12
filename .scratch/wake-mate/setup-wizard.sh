@@ -298,6 +298,11 @@ write_env SUPABASE_ANON_KEY "$SUPABASE_ANON_KEY"
 write_env SUPABASE_DB_PASSWORD "$SUPABASE_DB_PASSWORD"
 set_secret SUPABASE_PROJECT_ID "$SUPABASE_PROJECT_ID"
 set_secret SUPABASE_DB_PASSWORD "$SUPABASE_DB_PASSWORD"
+# Also needed by ios-release.yml (ticket 02's TestFlight pipeline) to build
+# Secrets.xcconfig for a real signed build — the compile-check-only
+# ios-build.yml doesn't need these, but the release workflow does.
+set_secret SUPABASE_URL "$SUPABASE_URL"
+set_secret SUPABASE_ANON_KEY "$SUPABASE_ANON_KEY"
 
 # ── Stage 3: Supabase CLI access token ─────────────────────────────────────
 stage "Supabase CLI access token"
@@ -356,6 +361,7 @@ open_url "https://developer.apple.com/account/resources/identifiers/list/bundleI
 step "Register a new App ID / bundle identifier, e.g. com.<yourname>.wakemate."
 ask WAKEMATE_BUNDLE_ID "Bundle identifier you registered:"
 write_env WAKEMATE_BUNDLE_ID "$WAKEMATE_BUNDLE_ID"
+set_var WAKEMATE_BUNDLE_ID "$WAKEMATE_BUNDLE_ID"
 warn "This repo currently uses 'com.wakemate' as a placeholder. Update"
 warn "ios/project.yml manually: 'bundleIdPrefix' and the app target's"
 warn "PRODUCT_BUNDLE_IDENTIFIER to match what you just registered, then"
@@ -371,6 +377,7 @@ step "On the project's Getting Started page, copy its DSN."
 ask_secret SENTRY_DSN "Paste the iOS project's DSN:"
 _xcconfig_set SENTRY_DSN "$SENTRY_DSN"
 write_env SENTRY_DSN "$SENTRY_DSN"
+set_secret SENTRY_DSN "$SENTRY_DSN"
 note "That's the client-side DSN for the iOS app."
 if confirm "Also create a second Sentry project for the backend Edge Functions now?"; then
   step "Create another project, platform 'Deno' (or generic Node), named"
@@ -390,6 +397,7 @@ step "Copy the app's App ID (looks like a UUID) from its settings page."
 ask TELEMETRYDECK_APP_ID "Paste the TelemetryDeck App ID:"
 _xcconfig_set TELEMETRYDECK_APP_ID "$TELEMETRYDECK_APP_ID"
 write_env TELEMETRYDECK_APP_ID "$TELEMETRYDECK_APP_ID"
+set_secret TELEMETRYDECK_APP_ID "$TELEMETRYDECK_APP_ID"
 
 # ── Stage 9: fill ios/Secrets.xcconfig ─────────────────────────────────────
 stage "ios/Secrets.xcconfig"
@@ -437,13 +445,14 @@ SKIPPED+=("one-time ~30-60min Mac session to run 'xcodegen generate' + Xcode")
 
 # ── Stage 12: Apple Developer Team ID ──────────────────────────────────────
 stage "Apple Developer Team ID"
-say "Xcode Cloud and automatic code signing (ticket 02) need your Team ID,"
-say "not just the bundle identifier from stage 6."
+say "Automatic code signing (ticket 02) needs your Team ID, not just the"
+say "bundle identifier from stage 6."
 open_url "https://developer.apple.com/account"
 step "Membership details (bottom of the sidebar) -> copy the 'Team ID'"
 step "(a 10-character alphanumeric string, e.g. A1B2C3D4E5)."
 ask APPLE_TEAM_ID "Paste your Apple Developer Team ID:"
 write_env APPLE_TEAM_ID "$APPLE_TEAM_ID"
+set_secret APPLE_TEAM_ID "$APPLE_TEAM_ID"
 if [[ -n "${WAKEMATE_BUNDLE_ID:-}" ]]; then
   note "bundle ID already captured in stage 6: $WAKEMATE_BUNDLE_ID"
   note "(this must match ios/project.yml's PRODUCT_BUNDLE_IDENTIFIER)"
@@ -451,7 +460,8 @@ fi
 
 # ── Stage 13: App Store Connect app record ─────────────────────────────────
 stage "App Store Connect app record"
-say "Xcode Cloud and TestFlight both need an app record to attach builds to."
+say "TestFlight needs an app record to attach builds to — the automatic"
+say "GitHub Actions pipeline (ticket 02) uploads to this same record."
 open_url "https://appstoreconnect.apple.com/apps"
 step "'+' -> New App."
 step "Platform: iOS. Bundle ID: pick the one registered under"
@@ -461,33 +471,55 @@ open_url "https://developer.apple.com/account/resources/identifiers/list/bundleI
 step "SKU: any internal string, e.g. wake-mate-ios. Name: Wake Mate."
 pause "Press Enter once the app record exists in App Store Connect:"
 
-# ── Stage 14: Xcode Cloud workflow (needs a Mac) ───────────────────────────
-stage "Xcode Cloud workflow: manual trigger + automatic signing"
-warn "This stage needs Xcode open on a Mac — fold it into the one-time Mac"
-warn "session from stage 11 if you haven't had it yet."
-say "In Xcode, with WakeMate.xcodeproj open:"
-step "Product menu -> Xcode Cloud -> Create Workflow."
-step "Grant Xcode Cloud access to this GitHub repo when prompted."
-step "Xcode proposes a default workflow (usually 'runs on every push to"
-step "main') — do NOT accept that. Edit the Start Condition: remove the"
-step "branch-change trigger entirely so the workflow only runs when someone"
-step "clicks 'Start Build' by hand. Every build spends an Apple Beta App"
-step "Review slot, so per-merge builds would burn through review quota."
-step "Environment tab -> Environment Variables: add SUPABASE_URL,"
-step "SUPABASE_ANON_KEY, SENTRY_DSN, TELEMETRYDECK_APP_ID (values are in"
-step "$ENV_FILE from stages 2/7/8 — copy them over by hand, this wizard"
-step "can't reach Xcode Cloud's settings). Mark each as Secret."
-step "Signing & Capabilities -> 'Automatically manage signing', team ="
-step "the Team ID from stage 12. This is what makes signing fully"
-step "automatic — nothing for you to store or rotate."
-pause "Press Enter once the workflow exists with a manual-only trigger, the four env vars, and automatic signing:"
+# ── Stage 14: App Store Connect API key + Fastlane signing (no Mac) ───────
+stage "App Store Connect API key + automatic signing (no Xcode needed)"
+say "This is what lets the pipeline build, sign, and upload a real"
+say "TestFlight build with nobody touching a Mac — including creating the"
+say "signing certificate, which is the one thing the old Xcode Cloud plan"
+say "still needed a Mac for."
+open_url "https://appstoreconnect.apple.com/access/integrations/api"
+step "Keys tab -> '+' -> name it e.g. 'wake-mate-ci'. Access: App Manager."
+step "Generate it, then download the .p8 key file IMMEDIATELY — Apple only"
+step "lets you download it once, ever."
+step "Note the 'Key ID' and 'Issuer ID' shown on that page."
+ask APP_STORE_CONNECT_API_KEY_ID "Key ID:"
+ask APP_STORE_CONNECT_API_ISSUER_ID "Issuer ID:"
+write_env APP_STORE_CONNECT_API_KEY_ID "$APP_STORE_CONNECT_API_KEY_ID"
+write_env APP_STORE_CONNECT_API_ISSUER_ID "$APP_STORE_CONNECT_API_ISSUER_ID"
+set_secret APP_STORE_CONNECT_API_KEY_ID "$APP_STORE_CONNECT_API_KEY_ID"
+set_secret APP_STORE_CONNECT_API_ISSUER_ID "$APP_STORE_CONNECT_API_ISSUER_ID"
+ask API_KEY_PATH "Full path to the .p8 file you just downloaded:"
+if [[ -f "$API_KEY_PATH" ]]; then
+  APP_STORE_CONNECT_API_KEY_CONTENT=$( { base64 -w0 "$API_KEY_PATH" 2>/dev/null || base64 "$API_KEY_PATH"; } | tr -d '\n')
+  set_secret APP_STORE_CONNECT_API_KEY_CONTENT "$APP_STORE_CONNECT_API_KEY_CONTENT"
+else
+  warn "couldn't find that file — set this secret manually later:"
+  warn "  base64 -w0 <path to .p8> | gh secret set APP_STORE_CONNECT_API_KEY_CONTENT"
+  SKIPPED+=("APP_STORE_CONNECT_API_KEY_CONTENT (base64-encode the .p8 key yourself)")
+fi
+say "Fastlane also needs its own passphrase, to encrypt the signing"
+say "certificate it will create automatically and store in this repo's"
+say "'certificates' branch. Make up a new one now — don't reuse another"
+say "password."
+ask_secret MATCH_PASSWORD "Choose a passphrase for Fastlane's certificate storage:"
+set_secret MATCH_PASSWORD "$MATCH_PASSWORD"
+if [[ -n "${GITHUB_REPO_NAME:-}" ]]; then
+  open_url "https://github.com/${GITHUB_REPO_NAME}/settings/actions"
+else
+  step "Go to your repo -> Settings -> Actions -> General."
+fi
+step "Under 'Workflow permissions', select 'Read and write permissions' ->"
+step "Save. This is what lets the pipeline store the certificate it"
+step "creates in the 'certificates' branch."
+pause "Press Enter once Workflow permissions is set to 'Read and write':"
 
 # ── Stage 15: Marketing version (process only, no automation) ─────────────
 stage "Marketing version bump (manual, every release)"
-say "Xcode Cloud auto-increments the *build* number via ci_post_clone.sh +"
-say "agvtool (already wired in — see ios/README.md). The *marketing*"
-say "version is never automated: bump it by hand before each release you"
-say "intend to ship, then run 'xcodegen generate' and commit."
+say "The pipeline auto-increments the *build* number via"
+say "ios/fastlane/Fastfile + agvtool (already wired in — see"
+say "ios/README.md). The *marketing* version is never automated: bump it"
+say "by hand before each release you intend to ship, then run"
+say "'xcodegen generate' and commit."
 CURRENT_MARKETING_VERSION=$(grep -E '^\s*MARKETING_VERSION:' "$REPO_ROOT/ios/project.yml" | head -n1 | sed -E 's/.*"([^"]+)".*/\1/')
 note "ios/project.yml currently has MARKETING_VERSION: ${CURRENT_MARKETING_VERSION:-unknown}"
 pause "Press Enter to acknowledge (nothing else to capture here):"
@@ -512,11 +544,15 @@ pause "Press Enter once the external group exists with that tester added:"
 
 # ── Stage 17: Trigger a build + submit Beta App Review ─────────────────────
 stage "First external build + Apple Beta App Review"
-step "Back in Xcode Cloud (App Store Connect -> your app -> Xcode Cloud, or"
-step "Xcode's Report Navigator -> Cloud tab), click 'Start Build' on the"
-step "workflow from stage 14 — it's manual-trigger, so nothing runs until"
-step "you click it."
-pause "Press Enter once the build has finished and appears under TestFlight:"
+if [[ -n "${GITHUB_REPO_NAME:-}" ]]; then
+  open_url "https://github.com/${GITHUB_REPO_NAME}/actions/workflows/ios-release.yml"
+else
+  step "Go to your repo on GitHub -> Actions -> 'iOS TestFlight release'."
+fi
+step "Click 'Run workflow' (top right) -> Run workflow. It's manual-trigger"
+step "only, so nothing runs until you click it — this is the pipeline from"
+step "stage 14, and needs everything captured there to succeed."
+pause "Press Enter once the workflow has finished and the build appears under TestFlight:"
 step "TestFlight tab -> the build -> assign it to the External Testers group"
 step "from stage 16. This kicks off Apple Beta App Review: fill in export"
 step "compliance (uses encryption? almost certainly 'no' or HTTPS-exempt —"

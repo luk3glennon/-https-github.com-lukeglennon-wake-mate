@@ -1,3 +1,14 @@
+## Communication style
+
+- The user is non-technical. Every explanation, summary, or status update
+  addressed to them must be written in plain, non-technical language: no
+  jargon, tool/file names, code, or acronyms unless a plain-English gloss
+  comes with it. Explain what something means for the product or the
+  user's decision, not how it works internally.
+- This applies to conversational replies. Code, commit messages, and
+  in-repo documentation (README, ADRs, tickets) can stay technical — those
+  are for whoever maintains the code later, not for reading in chat.
+
 ## Context economy rules
 
 - When delegating research or investigation to a subagent (Task/Agent tool), 

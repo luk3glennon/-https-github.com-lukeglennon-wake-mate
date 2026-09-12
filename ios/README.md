@@ -26,27 +26,46 @@ restriction, not something to work around. So:
 3. `cd ios && xcodegen generate`
 4. Open `WakeMate.xcodeproj` and run on an iOS 26+ simulator.
 
-## TestFlight distribution (Xcode Cloud)
+## TestFlight distribution (GitHub Actions + Fastlane)
 
 Real builds (the ones an external tester installs, as opposed to the
-GitHub Actions job above that only proves "does it compile") go out via
-Xcode Cloud, triggered **manually only** — never per-merge — since every
-build consumes App Store Connect's Beta App Review queue. See
-`.scratch/wake-mate/setup-wizard.sh` (stages 12+) for the one-time Apple
-Developer / App Store Connect / Xcode Cloud setup walkthrough.
+`ios-build.yml` job above that only proves "does it compile") go out via
+`.github/workflows/ios-release.yml`, triggered **manually only** (GitHub's
+"Run workflow" button) — never per-merge — since every build consumes App
+Store Connect's Beta App Review queue.
 
-- `ios/ci_scripts/ci_post_clone.sh` runs first in every Xcode Cloud build:
-  installs XcodeGen, writes `Secrets.xcconfig` from environment variables
-  set in the workflow's App Store Connect settings (Xcode Cloud ->
-  workflow -> Environment -> Environment Variables — mark each one
-  Secret), runs `xcodegen generate`, then stamps the build number from
-  Xcode Cloud's `CI_BUILD_NUMBER` via `agvtool` (needs
-  `VERSIONING_SYSTEM: apple-generic` in `project.yml`, already set).
+This runs entirely on GitHub's macOS cloud runners, with **no local
+Mac/Xcode step at any point** — including the one-time certificate
+creation, which was the last thing the original Xcode Cloud plan would
+have needed a Mac for. See `.scratch/wake-mate/setup-wizard.sh` (stages
+12-14) for the one-time Apple Developer / App Store Connect API key setup
+walkthrough.
+
+- `ios/fastlane/Fastfile`'s `beta` lane runs the whole pipeline: writes
+  `Secrets.xcconfig` from GitHub Actions secrets, `xcodegen generate`,
+  stamps the build number via `agvtool` using GitHub's own run number
+  (needs `VERSIONING_SYSTEM: apple-generic` in `project.yml`, already
+  set), authenticates to the App Store Connect API, then builds, signs,
+  and uploads.
+- Code signing is handled by Fastlane **match**: it creates the
+  distribution certificate and provisioning profile itself via the App
+  Store Connect API (no Xcode GUI, no human clicking through Apple's
+  signing UI), and stores them — encrypted with a passphrase only this
+  project's secrets know — in a `certificates` branch of this same repo,
+  so later runs reuse them instead of creating a fresh certificate every
+  time. See `ios/fastlane/Matchfile`.
 - The marketing version (`MARKETING_VERSION` in `project.yml`) is bumped
   by hand before each release — nothing automates that.
-- Code signing is fully automatic (Xcode Cloud manages certificates and
-  profiles itself once "Automatically manage signing" is enabled on the
-  workflow) — there is nothing for a developer to store or rotate.
+- Required GitHub repository secrets (set by the wizard once the Apple
+  Developer account exists): `APPLE_TEAM_ID`, `APP_STORE_CONNECT_API_KEY_ID`,
+  `APP_STORE_CONNECT_API_ISSUER_ID`, `APP_STORE_CONNECT_API_KEY_CONTENT`
+  (the App Store Connect API `.p8` key, base64-encoded), `MATCH_PASSWORD`
+  (a passphrase Fastlane invents/uses to encrypt the certificate it
+  stores), plus the existing `SUPABASE_URL`, `SUPABASE_ANON_KEY`,
+  `SENTRY_DSN`, `TELEMETRYDECK_APP_ID` secrets and the `WAKEMATE_BUNDLE_ID`
+  repository variable. The repo's Settings -> Actions -> General ->
+  Workflow permissions must be set to "Read and write" so match can push
+  the `certificates` branch.
 
 ## Auth
 

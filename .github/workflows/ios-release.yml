@@ -1,0 +1,79 @@
+name: iOS TestFlight release
+
+# Ticket 02 pivot (2026-09-12): replaces Xcode Cloud. Builds a real signed
+# release and uploads it to TestFlight via Fastlane, entirely on GitHub's
+# macOS cloud runners — no local Mac/Xcode involvement, including
+# certificate creation (see ios/fastlane/Fastfile). Manual trigger ONLY,
+# never on push: every build spends one of Apple's Beta App Review
+# submissions. See ios/README.md.
+#
+# Needs an Apple Developer Program account that doesn't exist yet — the
+# secrets below are placeholders until .scratch/wake-mate/setup-wizard.sh
+# stages 12-14 are run for real. Until then, this workflow is present but
+# will fail loudly (see Fastfile's require_env! checks) rather than produce
+# a broken build silently.
+
+on:
+  workflow_dispatch: {}
+
+jobs:
+  release:
+    name: Build, sign, and upload to TestFlight
+    runs-on: macos-15
+    # match (Fastlane's cert/profile manager) pushes to this repo's
+    # `certificates` branch to store the signing certificate it creates —
+    # needs write access to its own checkout.
+    permissions:
+      contents: write
+    defaults:
+      run:
+        working-directory: ios
+    env:
+      APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
+      APP_STORE_CONNECT_API_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_ISSUER_ID }}
+      APP_STORE_CONNECT_API_KEY_CONTENT: ${{ secrets.APP_STORE_CONNECT_API_KEY_CONTENT }}
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
+      WAKEMATE_BUNDLE_ID: ${{ vars.WAKEMATE_BUNDLE_ID }}
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+      SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
+      TELEMETRYDECK_APP_ID: ${{ secrets.TELEMETRYDECK_APP_ID }}
+      MATCH_GIT_URL: https://github.com/${{ github.repository }}.git
+    steps:
+      - uses: actions/checkout@v4
+
+      # Bump alongside ios-build.yml's Xcode version — keep the two in sync
+      # so "does it compile" and "does the real build" run on the same SDK.
+      - name: Select Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: "26.0"
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Install Fastlane
+        run: gem install fastlane --no-document
+        # Deliberately not Bundler + a committed Gemfile.lock: a lockfile
+        # generated on a non-macOS machine (this repo has no Mac) wouldn't
+        # list the macOS platform gem variants this runner needs, so it
+        # would either be wrong or need regenerating on a Mac anyway —
+        # defeating the point. Revisit if/when a Mac is available to
+        # generate one properly.
+
+      - name: Authorize Fastlane match to push to this repo
+        # x-access-token is a synthetic username GitHub's git-over-HTTPS
+        # accepts paired with any valid token, including the job's own
+        # ephemeral GITHUB_TOKEN — no separate credential to create or
+        # rotate for match's own git storage access.
+        run: |
+          echo "MATCH_GIT_BASIC_AUTHORIZATION=$(printf 'x-access-token:%s' '${{ secrets.GITHUB_TOKEN }}' | base64 | tr -d '\n')" >> "$GITHUB_ENV"
+
+      - name: Configure git identity for match's commits
+        run: |
+          git config --global user.email "ci@wakemate.local"
+          git config --global user.name "Wake Mate CI"
+
+      - name: Build and upload to TestFlight
+        run: fastlane beta

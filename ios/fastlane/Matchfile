@@ -1,0 +1,16 @@
+# fastlane-match: generates the distribution certificate + provisioning
+# profile via the App Store Connect API (no Xcode GUI involved) and stores
+# them, encrypted with MATCH_PASSWORD, in a `certificates` branch of this
+# same repo — so re-runs reuse the same certificate instead of hitting
+# Apple's 2-certificate limit, and no second repo needs creating.
+#
+# git_url/basic-auth are read from env because they depend on which repo
+# this is (set in .github/workflows/ios-release.yml from GITHUB_TOKEN and
+# github.repository — no separate credential to provision).
+git_url(ENV["MATCH_GIT_URL"])
+git_basic_authorization(ENV["MATCH_GIT_BASIC_AUTHORIZATION"])
+git_branch("certificates")
+storage_mode("git")
+
+type("appstore")
+app_identifier(ENV["WAKEMATE_BUNDLE_ID"] || "com.wakemate.app")

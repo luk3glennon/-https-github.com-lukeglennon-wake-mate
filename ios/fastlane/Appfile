@@ -1,0 +1,12 @@
+# Read by every Fastlane action (build_app, match, upload_to_testflight, …).
+# Real values come from GitHub Actions env (WAKEMATE_BUNDLE_ID repo variable,
+# APPLE_TEAM_ID secret — see .github/workflows/ios-release.yml). The
+# fallback bundle id matches project.yml's current placeholder so local
+# `fastlane` invocations don't hard-fail before the real one is registered.
+app_identifier(ENV["WAKEMATE_BUNDLE_ID"] || "com.wakemate.app")
+team_id(ENV["APPLE_TEAM_ID"])
+
+# No `apple_id` here deliberately: every Fastlane action in this pipeline
+# authenticates via the App Store Connect API key (see Fastfile's
+# app_store_connect_api_key call), not an Apple ID + password/2FA — that's
+# what makes this runnable unattended on a CI runner with no human present.
