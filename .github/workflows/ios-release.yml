@@ -38,6 +38,11 @@ jobs:
       SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
       SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
       SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
+      # Symbol upload only — a write-only DSN cannot upload dSYMs, so this is
+      # a separate Sentry auth token. Org/project are slugs, not secrets.
+      SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+      SENTRY_ORG: ${{ vars.SENTRY_ORG }}
+      SENTRY_PROJECT: ${{ vars.SENTRY_PROJECT }}
       TELEMETRYDECK_APP_ID: ${{ secrets.TELEMETRYDECK_APP_ID }}
       MATCH_GIT_URL: https://github.com/${{ github.repository }}.git
     steps:
@@ -52,6 +57,9 @@ jobs:
 
       - name: Install XcodeGen
         run: brew install xcodegen
+
+      - name: Install sentry-cli
+        run: brew install getsentry/tools/sentry-cli
 
       - name: Install Fastlane
         run: gem install fastlane --no-document

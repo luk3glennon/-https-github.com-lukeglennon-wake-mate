@@ -62,10 +62,24 @@ walkthrough.
   (the App Store Connect API `.p8` key, base64-encoded), `MATCH_PASSWORD`
   (a passphrase Fastlane invents/uses to encrypt the certificate it
   stores), plus the existing `SUPABASE_URL`, `SUPABASE_ANON_KEY`,
-  `SENTRY_DSN`, `TELEMETRYDECK_APP_ID` secrets and the `WAKEMATE_BUNDLE_ID`
-  repository variable. The repo's Settings -> Actions -> General ->
+  `SENTRY_DSN`, `TELEMETRYDECK_APP_ID` secrets, the `SENTRY_AUTH_TOKEN`
+  secret (see below), and the `WAKEMATE_BUNDLE_ID`, `SENTRY_ORG`,
+  `SENTRY_PROJECT` repository variables. The repo's Settings -> Actions -> General ->
   Workflow permissions must be set to "Read and write" so match can push
   the `certificates` branch.
+
+- **Sentry symbol (dSYM) upload.** The `beta` lane uploads debug symbols
+  to Sentry via `sentry-cli` before it uploads the build to TestFlight,
+  because a release build is stripped and optimised and its crashes are
+  unreadable without them. This needs `SENTRY_AUTH_TOKEN` (a Sentry
+  **auth token** with `project:releases` scope — the DSN is write-only and
+  cannot upload symbols) plus `SENTRY_ORG` and `SENTRY_PROJECT` slugs.
+  The step is allowed to fail the whole lane on purpose: shipping a build
+  whose crash reports are undiagnosable is the failure it exists to
+  prevent, and the release trigger is manual so a retry is one click.
+  Beware a false positive here — `WakeMateApp.swift`'s
+  `SentrySDK.capture(message:)` smoke test appears in Sentry regardless,
+  since a message carries no stack trace to symbolicate.
 
 ## Auth
 

@@ -32,6 +32,12 @@ platform :ios do
     supabase_anon_key = require_env!("SUPABASE_ANON_KEY")
     sentry_dsn = require_env!("SENTRY_DSN")
     telemetrydeck_app_id = require_env!("TELEMETRYDECK_APP_ID")
+    # sentry-cli picks SENTRY_AUTH_TOKEN up from the environment itself; it
+    # is read here only so a missing one fails this lane in the first second
+    # rather than after a ten-minute build.
+    require_env!("SENTRY_AUTH_TOKEN")
+    sentry_org = require_env!("SENTRY_ORG")
+    sentry_project = require_env!("SENTRY_PROJECT")
     build_number = require_env!("GITHUB_RUN_NUMBER")
 
     bundle_id = ENV["WAKEMATE_BUNDLE_ID"] || "com.wakemate.alarmcall"
@@ -112,6 +118,43 @@ platform :ios do
       scheme: "WakeMate",
       export_method: "app-store",
     )
+
+    # Sentry can only turn a crash back into file-and-line if it holds the
+    # dSYMs for that exact binary. An app-store build is stripped and
+    # optimised, so without this step a real crash arrives as raw addresses
+    # and is effectively undiagnosable. Note the smoke-test message in
+    # WakeMateApp.swift carries no stack trace, so it shows up in Sentry
+    # whether or not this step exists — it is not evidence symbolication
+    # works. (Found missing 2026-09-12, after that message was mistaken for
+    # proof that crash reporting was fully wired; see ticket 01.)
+    #
+    # Prefer the archive's dSYMs directory over build_app's DSYM_OUTPUT_PATH
+    # zip: it contains the dSYMs for the Swift Package dependencies too, not
+    # just the app's own, so a crash inside Supabase/Sentry/TelemetryDeck
+    # frames symbolicates as well.
+    archive_path = lane_context[SharedValues::XCODEBUILD_ARCHIVE]
+    archive_dsyms = archive_path && File.join(archive_path, "dSYMs")
+    dsym_source =
+      if archive_dsyms && Dir.exist?(archive_dsyms)
+        archive_dsyms
+      else
+        lane_context[SharedValues::DSYM_OUTPUT_PATH]
+      end
+
+    if dsym_source.to_s.empty?
+      UI.user_error!("build_app produced no dSYMs — refusing to ship a build whose crashes would be unreadable")
+    end
+
+    UI.message("Uploading dSYMs to Sentry from #{dsym_source}...")
+    # Deliberately ahead of upload_to_testflight, and deliberately allowed to
+    # fail the lane: a build sitting in TestFlight whose crash reports are
+    # unreadable is the exact failure this step exists to prevent. Releases
+    # are manual-trigger only, so re-running after a transient Sentry outage
+    # costs one click.
+    sh("sentry-cli", "debug-files", "upload",
+       "--org", sentry_org,
+       "--project", sentry_project,
+       dsym_source)
 
     upload_to_testflight(skip_waiting_for_build_processing: true)
   end
