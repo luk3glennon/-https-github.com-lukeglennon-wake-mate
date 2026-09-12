@@ -4,6 +4,27 @@
 
 **Blocked by:** None (can start immediately)
 
+**CLOSED 2026-09-12** by the dev. The ticket's purpose is met: a user can
+install the app, accept the ToS, sign up, and land on a home stub backed by a
+real account, and the infrastructure behind it ships safely. Verified on a
+real device, not inferred.
+
+Two boxes below are still unticked, and are left that way on purpose rather
+than tidied away — closing a ticket is a decision about priority, not a claim
+that everything in it happened:
+
+- **Local dev via `supabase start`** — never attempted, not once. It buys
+  offline/iterative backend work; the project has managed without it so far by
+  working against the hosted project. Reopen if backend work gets heavy enough
+  that pushing to hosted per change starts to hurt.
+- **dSYM item, part (c)** — crash symbolication proven by a real crash. Parts
+  (a) and (b) are done and a green release run carried the upload, so the
+  machinery is in place and defended by hard failures; what is missing is the
+  single observation that closes the loop. Per the decision recorded below,
+  this waits on a genuine crash rather than a deliberate one. **If crashes
+  ever come back as raw addresses, start here** — the answer is in this item.
+
+
 - [x] Supabase project created, region locked to `eu-west-1` (captured via wizard: project ref, URL, anon key, DB password all present in `.scratch/wake-mate/setup-wizard.env`)
 - [x] `profiles` table (`user_id`, `handle`, `created_at`) with Supabase Auth wired up (`supabase/migrations/20260911141557_initial_schema.sql` — RLS + `handle_new_user()` trigger on `auth.users` insert)
 - [x] GitHub Actions pipeline runs `supabase db push` and `supabase functions deploy` on merge to `main`, gated by one manual GitHub Environments approval (`.github/workflows/deploy-backend.yml` targets the `production` environment) — **verified 2026-09-12**: the "Deploy backend" workflow has 4 runs, the last of which (2026-09-11T18:16:38Z) concluded `success`
@@ -41,7 +62,7 @@
 - [x] ~~TelemetryDeck analytics~~ — **moved to ticket 02** and **resolved there 2026-09-12** (App ID captured and set as a GitHub secret); nothing outstanding under this ticket
 - [x] Sign-up flow: account creation, ToS click captured (contract-necessity basis, not a consent gate), lands on a home stub — **verified end-to-end 2026-09-12** on a real iPhone, build `4` via the internal TestFlight group. `auth.users` has exactly one row; email present and `email_confirmed_at` set (`mailer_autoconfirm` working as designed); `last_sign_in_at` populated, so the session was established rather than just the account created. ToS capture verified specifically: `raw_user_meta_data ->> 'tos_accepted_at'` is `2026-09-12T17:21:11Z` while the row's `created_at` is `17:21:13.41`, so the value came from the **client's claim**, not `handle_new_user()`'s `coalesce(..., now())` fallback — i.e. the real ToS click timestamp was captured and round-tripped, which a `now()` fallback would have silently faked
 - [x] A `profiles` row exists for the signed-up user — **verified 2026-09-12** by querying the hosted project (Supabase Management API `POST /v1/projects/{ref}/database/query`). The row was created by the `handle_new_user()` trigger with no client involvement, `handle` auto-generated as `user_1c538ad31e2f` (matches ticket 16's `^[a-z0-9_]{3,20}$` format), `tos_accepted_at` correct. Note `profiles` holds no email column by design — the email lives on `auth.users`, which is where it was checked
-- [ ] ~~Sign-in for a returning user~~ — **split out to ticket 09** (2026-09-12): never in this ticket's scope, but its absence means signing out is a one-way door, so it's tracked rather than lost
+- [ ] ~~Sign-in for a returning user~~ — **split out 2026-09-12, now in ticket 03** (briefly its own ticket 09, since merged): never in this ticket's scope, but its absence means signing out is a one-way door, so it's tracked rather than lost
 
 ## Held / deferred (2026-09-11)
 

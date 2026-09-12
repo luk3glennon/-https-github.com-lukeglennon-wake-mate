@@ -4,6 +4,28 @@
 
 **Blocked by:** 01 (Foundation: account creation + deploy pipeline)
 
+**CLOSED 2026-09-12** by the dev. A build of the app installs and launches off
+the dev's own machine via TestFlight, signed automatically, with no Mac and no
+Xcode anywhere in the path. Six failed attempts to get the first one there are
+written up below and are worth reading before touching the pipeline.
+
+One box below is unticked and stays that way: **an external tester installing
+the app**. Build `4` is with Apple in Beta App Review (`WAITING_FOR_REVIEW`),
+and Apple holds the invite email until it passes, so this is waiting on Apple
+rather than on any work here. Two things follow from closing the ticket anyway:
+
+- Nobody is watching for the review outcome. If it is **rejected**, that is a
+  real failure that this closed ticket will not surface — check App Store
+  Connect, or re-query `betaReviewState`, before assuming external testing works.
+- The external group is still pointed at build `4`, not the newer build `6`.
+  Moving it restarts review and re-emails the tester, so it needs a deliberate
+  decision, not a default.
+
+The strict reading is that the ticket's own headline — *a real tester, off the
+dev's own machine* — is not yet demonstrated with a tester who is not the dev.
+Recorded plainly so nobody later reads the tick marks as proof it was.
+
+
 - [x] GitHub Actions release pipeline (`ios-release.yml`) configured, manual trigger only (not per-merge) — **verified end-to-end 2026-09-12**: builds, signs, uploads, and the build reached App Store Connect (build `4`, `processingState: VALID`). Took six attempts to get there — see "First real runs" below
 - [x] Code signing fully automatic — nothing for the dev to store or rotate — Fastlane `match` creates the certificate/profile itself via the App Store Connect API (`ios/fastlane/Fastfile`, `ios/fastlane/Matchfile`); **verified 2026-09-12** — `match` created the distribution certificate and App Store profile, stored them on the `certificates` branch, and a signed `.ipa` was produced, with no local Mac/Xcode step at any point
 - [x] Build number auto-incremented by the pipeline; marketing version bumped manually — **verified 2026-09-12** (`agvtool new-version -all "$GITHUB_RUN_NUMBER"` in `ios/fastlane/Fastfile`'s `beta` lane ran in a successful archive)
@@ -11,7 +33,7 @@
 - [x] External TestFlight tester group created (not internal-only) — **done 2026-09-12**: group "External Testers" (`isInternalGroup: false`), one tester added, currently `NOT_INVITED` (invites don't send until a build is attached). Created via the App Store Connect API, not the web UI — see "Finishing TestFlight setup" below
 - [~] Apple Beta App Review **submitted 2026-09-12T09:57:05-07:00**, currently `betaReviewState: WAITING_FOR_REVIEW`. Build `4` is attached to the External Testers group; everything the review needs was already filled in (export compliance, Test Information, review contact, reviewer notes). Not yet passed — reopen this as failed if Apple rejects it, otherwise tick on approval. Note the tester stays `NOT_INVITED` until the review passes; Apple holds external invites behind approval, so `NOT_INVITED` here is expected, not a missed step
 - [x] Internal tester group created and the account holder invited — **done 2026-09-12**: group "Internal Testers" (`isInternalGroup: true`, `hasAccessToAllBuilds: true`), tester `state: INVITED`, build `4` visible to the group. Internal testing is **not** gated on Beta App Review, so this is the route that works today — see "Internal testing group" below
-- [ ] The dev installs and launches build `4` via the internal group — invite sent 2026-09-12, not yet confirmed. This is what unblocks ticket 01's Sentry / sign-up / `profiles`-row items
+- [x] The dev installs and launches build `4` via the internal group — **verified 2026-09-12**, and not by asking: the launch reached Sentry as a real event, and signing up wrote a `profiles` row that was read straight out of the hosted database. Three of ticket 01's open items closed on the back of it. Build `6` reached the same group later the same day (`VALID`), needing no API call — `hasAccessToAllBuilds: true` does it
 - [ ] At least one external tester successfully installs and launches the app via TestFlight — walkthrough written (wizard stage 18), not run; still waiting on Beta App Review
 
 ## Pipeline pivot (2026-09-12): Xcode Cloud replaced with GitHub Actions + Fastlane
@@ -163,7 +185,8 @@ which is unauthenticated), so sign-up needs no confirmation email and
 Apple's reviewer can self-register — hence `demoAccountRequired: false`
 and a reviewer note explaining it, rather than inventing credentials
 (Apple actually tries them). Checking that also surfaced that the app has
-no sign-in screen at all — written up as ticket 09.
+no sign-in screen at all — written up in ticket 03
+(briefly its own ticket 09, merged into 03 on 2026-09-12).
 
 ## Internal testing group (2026-09-12, later session)
 
