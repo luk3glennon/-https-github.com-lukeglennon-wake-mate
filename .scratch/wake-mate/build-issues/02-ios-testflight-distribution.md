@@ -4,9 +4,9 @@
 
 **Blocked by:** 01 (Foundation: account creation + deploy pipeline)
 
-- [ ] GitHub Actions release pipeline (`ios-release.yml`) configured, manual trigger only (not per-merge) — code-complete, all required secrets/variables now set in GitHub; **still unverified** — no real trigger of the workflow has happened yet
-- [x] Code signing fully automatic — nothing for the dev to store or rotate — Fastlane `match` creates the certificate/profile itself via the App Store Connect API (`ios/fastlane/Fastfile`, `ios/fastlane/Matchfile`); code-complete, unverified, no real Mac/Xcode step at any point
-- [x] Build number auto-incremented by the pipeline; marketing version bumped manually — code-complete (`ios/fastlane/Fastfile`'s `beta` lane runs `agvtool new-version -all "$GITHUB_RUN_NUMBER"`, `VERSIONING_SYSTEM: apple-generic` already set in `ios/project.yml`); **unverified** — no real pipeline run has happened yet to exercise it
+- [ ] GitHub Actions release pipeline (`ios-release.yml`) configured, manual trigger only (not per-merge) — **builds and signs successfully as of 2026-09-12** (see "First real runs" below); the upload step has not yet succeeded, blocked on the app icon
+- [x] Code signing fully automatic — nothing for the dev to store or rotate — Fastlane `match` creates the certificate/profile itself via the App Store Connect API (`ios/fastlane/Fastfile`, `ios/fastlane/Matchfile`); **verified 2026-09-12** — `match` created the distribution certificate and App Store profile, stored them on the `certificates` branch, and a signed `.ipa` was produced, with no local Mac/Xcode step at any point
+- [x] Build number auto-incremented by the pipeline; marketing version bumped manually — **verified 2026-09-12** (`agvtool new-version -all "$GITHUB_RUN_NUMBER"` in `ios/fastlane/Fastfile`'s `beta` lane ran in a successful archive)
 - [x] TelemetryDeck app registered (**moved here from ticket 01 on 2026-09-12**) — resolved 2026-09-12: TelemetryDeck's app-creation form did ask for an App Store URL as feared, but it turned out not to be a hard blocker (exact workaround not captured, but the dev got past it) and the app was created; App ID `39F2D925-0E69-4C83-826A-5173D8FEA4A2` captured and pushed as the `TELEMETRYDECK_APP_ID` GitHub secret
 - [ ] External TestFlight tester group created (not internal-only) — walkthrough written (wizard stage 16), not run: needs an App Store Connect app record, which needs stage 13 done first
 - [ ] Apple Beta App Review submitted and passed for the first external build — walkthrough written (wizard stage 17), not run: needs a real build from the pipeline
@@ -67,6 +67,62 @@ first build) now points at GitHub's Actions tab instead of Xcode Cloud.
 Original pivot planning notes: the handoff doc this was planned from is
 `C:\Users\luk3g\AppData\Local\Temp\wakemate-handoff-2026-09-12.md` (session-local
 temp file, not part of the repo).
+
+## First real runs of the pipeline (2026-09-12)
+
+The five failures it took to get from "never triggered" to a signed
+`.ipa`, in order — recorded because several were non-obvious and would
+otherwise be re-derived:
+
+1. **The workflow wasn't visible in GitHub's Actions tab at all.** This
+   repo's default branch is `master`, but all work was being pushed to
+   `main`. GitHub only registers workflow files that exist on the default
+   branch, so `ios-release.yml` was invisible to the Actions UI and API
+   even though it was pushed. `origin/master` was a strict ancestor of
+   `origin/main`, so it was fast-forwarded (`git push origin main:master`)
+   and the workflow appeared immediately. **Every push from here on must
+   go to both branches** until the default branch is changed — an earlier
+   "green run" that was mistaken for success was in fact `ios-build.yml`
+   (the compile/test-only workflow), which is easy to confuse with this
+   one in the run list.
+2. **`TELEMETRYDECK_APP_ID not set`** — the value had been set as a
+   repository *variable* rather than a *secret* (separate tabs under
+   Settings -> Secrets and variables -> Actions). Re-added as a secret.
+3. **"Signing for 'WakeMate' requires a development team."** `project.yml`
+   carries no code-signing settings, so xcodegen's generated project
+   defaults to Xcode's automatic signing, which needs a signed-in Apple ID
+   — there is none on a CI runner. Adding `update_code_signing_settings`
+   alone did not fix it.
+4. **"`<package>` does not support provisioning profiles."** The next
+   attempt forced the signing settings via gym's `xcargs`, which passes
+   them on the `xcodebuild` command line — where they apply to *every*
+   target in the build, including the Swift Package dependencies
+   (TelemetryDeck, swift-crypto), which reject a manually specified
+   profile. Fixed by writing the signing settings into the generated
+   `Secrets.xcconfig` instead: that file is the WakeMate target's
+   `configFile`, so it reaches only that target. `match` now runs *before*
+   the xcconfig is written, so its profile name can be interpolated in,
+   and `update_code_signing_settings` is pinned to `targets: ["WakeMate"]`.
+   With this the archive succeeded and a signed `.ipa` was produced.
+5. **Upload rejected: "Missing required icon file" / "CFBundleIconName is
+   missing".** The project had no asset catalog and no app icon of any
+   kind. Added `ios/WakeMate/Assets.xcassets/AppIcon.appiconset` with a
+   single 1024x1024 source image (Xcode derives the rest) plus
+   `ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon` in `project.yml`. **The
+   icon is a generated placeholder** (indigo gradient, white alarm clock)
+   — it satisfies Apple's validator and is fine for TestFlight, but it
+   should be replaced with a real design before any public release.
+
+Also added along the way: `setup_ci` at the top of the `beta` lane. Without
+it `match` imports the certificate into the runner's locked login keychain,
+whose password it doesn't have, and logs "Could not configure imported
+keychain item (certificate) to prevent UI permission popup" — harmless
+until `codesign` needs the private key, at which point it hangs or fails.
+
+One warning is still unexplained and was worked around rather than fixed:
+`[Xcodeproj] Consistency issue: no parent for object 'Secrets.xcconfig'`,
+emitted by the `xcodeproj` gem while gym inspects the generated project. It
+has not caused an observed failure.
 
 ## Held / deferred (2026-09-12)
 
