@@ -11,7 +11,7 @@
 - [ ] Local dev works end-to-end via `supabase start` — not exercised this session
 - [x] iOS app target created with iOS 26 as the hard deployment minimum, no fallback tier (`ios/project.yml` — `deploymentTarget: "26.0"` on app + test targets)
 - [x] Sentry crash reporting wired in and firing at least one real event — **verified 2026-09-12** by the dev: the `SentrySDK.capture(message: "WakeMate launched")` smoke test in `WakeMateApp.swift:17` appears in the Sentry project's Issues list, sent from the real signed build `4` on a physical iPhone. This proves the DSN is valid and events reach Sentry from a shipped build — note it does **not** prove an actual crash is captured or readable; see the symbol-upload item below
-- [ ] Sentry dSYM (debug symbol) upload from CI — **code written 2026-09-12, not yet proven**. Found missing while ticking the Sentry item above: nothing in `.github/workflows/` or `ios/fastlane/` referenced dSYMs or `sentry-cli`, so a real crash in a TestFlight build would have reported as raw addresses. The smoke-test message carries no stack trace, which is exactly why it looked healthy anyway. Now implemented:
+- [ ] Sentry dSYM (debug symbol) upload from CI — **(a) and (b) done 2026-09-12; (c) still open**. Found missing while ticking the Sentry item above: nothing in `.github/workflows/` or `ios/fastlane/` referenced dSYMs or `sentry-cli`, so a real crash in a TestFlight build would have reported as raw addresses. The smoke-test message carries no stack trace, which is exactly why it looked healthy anyway. Now implemented:
   - `ios/project.yml` sets `DEBUG_INFORMATION_FORMAT: dwarf-with-dsym` on the Release config explicitly. This was **not** previously inherited — Xcode's *project template* sets it, but xcodegen generates the project from scratch and the build system's default for an unset value is plain `dwarf`, i.e. no `.dSYM` bundles produced at all.
   - `ios/fastlane/Fastfile`'s `beta` lane uploads the archive's `dSYMs/` directory (preferred over `DSYM_OUTPUT_PATH`, since it also covers the Swift Package dependencies) via `sentry-cli debug-files upload`, placed **before** `upload_to_testflight` and allowed to fail the lane — shipping an undiagnosable build is the failure being prevented, and the trigger is manual so a retry is one click.
   - `.github/workflows/ios-release.yml` installs `sentry-cli` and passes `SENTRY_AUTH_TOKEN` / `SENTRY_ORG` / `SENTRY_PROJECT`.
@@ -20,6 +20,23 @@
 
   **Outstanding before this can be ticked:** (a) the three new CI settings must be created — `SENTRY_AUTH_TOKEN` needs a Sentry auth token with `project:releases` scope, since the DSN is write-only and cannot upload symbols; (b) one release run must go green with the upload step in it; (c) a crash from a TestFlight build appearing in Sentry with readable file-and-line — the only thing that actually proves symbolication end-to-end. Do not tick on (a) and (b) alone.
 
+  **Progress 2026-09-12 (evening):** (a) and (b) are now done. The three CI
+  settings were created and release run #6 went green with the dSYM upload step
+  in it, producing build `6` (uploaded 18:04 UTC, `PROCESSING` at time of
+  writing). That run is stronger evidence than "the job passed": the lane
+  hard-fails with `UI.user_error!` if `build_app` yields no dSYMs, and
+  `sentry-cli debug-files upload` runs through `sh` so a non-zero exit aborts
+  the lane — so a green run means symbols were both produced and accepted by
+  Sentry. **(c) remains open** and is the only thing that proves symbolication
+  end-to-end; per the decision below, it waits on a genuine crash.
+
+  The failure that preceded it was worth the detour: the first attempt stopped
+  in `require_env!` naming a single empty variable, which is true but not
+  actionable — GitHub keeps repository *secrets* and repository *variables* on
+  two tabs of the same settings page and `${{ vars.X }}` does not fall back to
+  `${{ secrets.X }}`. `preflight_env!` (commit `05780b4`) now validates the
+  whole `REQUIRED_ENV` set before any work happens and prints every missing
+  name with the tab it belongs on, plus the ones that did arrive.
   **Decision 2026-09-12:** a temporary in-app "test crash" button (`SentrySDK.crash()`) was offered and **declined** — the dev chose to wait for a real crash rather than ship a deliberate one. So (c) will be satisfied opportunistically, by the first genuine crash, rather than on demand. Recorded because the alternative reading — that nobody thought to check — is exactly the assumption that hid the missing dSYM upload in the first place. If this item is still open when the tester group grows, revisit: the cost of finding out symbolication is broken at that point is a wasted crash report from a real user.
 - [x] ~~TelemetryDeck analytics~~ — **moved to ticket 02** and **resolved there 2026-09-12** (App ID captured and set as a GitHub secret); nothing outstanding under this ticket
 - [x] Sign-up flow: account creation, ToS click captured (contract-necessity basis, not a consent gate), lands on a home stub — **verified end-to-end 2026-09-12** on a real iPhone, build `4` via the internal TestFlight group. `auth.users` has exactly one row; email present and `email_confirmed_at` set (`mailer_autoconfirm` working as designed); `last_sign_in_at` populated, so the session was established rather than just the account created. ToS capture verified specifically: `raw_user_meta_data ->> 'tos_accepted_at'` is `2026-09-12T17:21:11Z` while the row's `created_at` is `17:21:13.41`, so the value came from the **client's claim**, not `handle_new_user()`'s `coalesce(..., now())` fallback — i.e. the real ToS click timestamp was captured and round-tripped, which a `now()` fallback would have silently faked

@@ -201,6 +201,31 @@ The external group was left untouched — re-verified after the change that it
 still has build `4` attached and `betaReviewState` is still
 `WAITING_FOR_REVIEW`.
 
+## Build 6: first release run carrying dSYM upload (2026-09-12)
+
+Release run #6 went green and uploaded build `6` (18:04 UTC, `PROCESSING` when
+checked). This is the first build whose debug symbols were shipped to Sentry as
+part of the same run — see ticket 01 for why that mattered and what it still
+doesn't prove.
+
+**Build numbers are run numbers, so they have gaps.** `agvtool new-version -all
+$GITHUB_RUN_NUMBER` stamps whatever run produced the binary, and run #5 failed
+in `preflight_env!` before `build_app`, so there is no build `5` and never will
+be. Do not read the gap as a lost or withdrawn build. The property that matters
+is monotonicity, which this preserves; contiguity was never required by App
+Store Connect.
+
+**The external group was deliberately left on build `4`.** Attaching build `6`
+to it would start a fresh Beta App Review *and* email the external tester again,
+so it needs the dev's go-ahead — same reasoning as the original attach. Build 4
+remains `WAITING_FOR_REVIEW`; nothing about run #6 changes that.
+
+**The internal group needed no action.** `hasAccessToAllBuilds: true` means
+build `6` becomes installable on the dev's own device as soon as Apple finishes
+processing it, with no API call and no review wait. Worth remembering as the
+general shape: internal for iteration speed, external only when a real outside
+tester genuinely needs the build.
+
 ## Held / deferred (2026-09-12)
 
 Everything in this ticket beyond the pipeline's code itself is gated on
