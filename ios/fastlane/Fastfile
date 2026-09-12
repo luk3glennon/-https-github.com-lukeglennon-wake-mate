@@ -25,9 +25,56 @@ def require_env!(name)
   value
 end
 
+# Where each required value has to be set. GitHub keeps repository
+# *secrets* and repository *variables* on two different tabs of the same
+# settings page, and `${{ secrets.X }}` does not fall back to `${{ vars.X }}`
+# (or the reverse) — so putting one on the wrong tab yields an empty value
+# and a failure that names the variable but not the mistake. Checking the
+# whole set up front and saying which tab each belongs on turns that into a
+# one-read fix instead of one-at-a-time guessing.
+REQUIRED_ENV = {
+  "SUPABASE_URL" => :secret,
+  "SUPABASE_ANON_KEY" => :secret,
+  "SENTRY_DSN" => :secret,
+  "TELEMETRYDECK_APP_ID" => :secret,
+  "SENTRY_AUTH_TOKEN" => :secret,
+  "APPLE_TEAM_ID" => :secret,
+  "APP_STORE_CONNECT_API_KEY_ID" => :secret,
+  "APP_STORE_CONNECT_API_ISSUER_ID" => :secret,
+  "APP_STORE_CONNECT_API_KEY_CONTENT" => :secret,
+  "MATCH_PASSWORD" => :secret,
+  "SENTRY_ORG" => :variable,
+  "SENTRY_PROJECT" => :variable,
+  "GITHUB_RUN_NUMBER" => :runner,
+}.freeze
+
+WHERE_TO_SET = {
+  secret: "repository SECRET  (Settings -> Secrets and variables -> Actions -> 'Secrets' tab)",
+  variable: "repository VARIABLE (Settings -> Secrets and variables -> Actions -> 'Variables' tab)",
+  runner: "supplied automatically by GitHub Actions — if this is missing you are not running on Actions",
+}.freeze
+
+def preflight_env!
+  missing = REQUIRED_ENV.select { |name, _| ENV[name].to_s.empty? }
+  return if missing.empty?
+
+  lines = ["", "#{missing.size} required setting(s) missing or empty:", ""]
+  missing.each do |name, kind|
+    lines << "  #{name}"
+    lines << "      -> #{WHERE_TO_SET[kind]}"
+  end
+  lines << ""
+  lines << "Present and non-empty: #{(REQUIRED_ENV.keys - missing.keys).join(', ')}"
+  lines << ""
+  UI.user_error!(lines.join("\n"))
+end
+
 platform :ios do
   desc "Build a signed release and upload it to TestFlight"
   lane :beta do
+    # Fail on the whole set at once, before anything slow or stateful runs.
+    preflight_env!
+
     supabase_url = require_env!("SUPABASE_URL")
     supabase_anon_key = require_env!("SUPABASE_ANON_KEY")
     sentry_dsn = require_env!("SENTRY_DSN")
