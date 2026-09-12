@@ -10,7 +10,9 @@
 - [x] TelemetryDeck app registered (**moved here from ticket 01 on 2026-09-12**) — resolved 2026-09-12: TelemetryDeck's app-creation form did ask for an App Store URL as feared, but it turned out not to be a hard blocker (exact workaround not captured, but the dev got past it) and the app was created; App ID `39F2D925-0E69-4C83-826A-5173D8FEA4A2` captured and pushed as the `TELEMETRYDECK_APP_ID` GitHub secret
 - [x] External TestFlight tester group created (not internal-only) — **done 2026-09-12**: group "External Testers" (`isInternalGroup: false`), one tester added, currently `NOT_INVITED` (invites don't send until a build is attached). Created via the App Store Connect API, not the web UI — see "Finishing TestFlight setup" below
 - [~] Apple Beta App Review **submitted 2026-09-12T09:57:05-07:00**, currently `betaReviewState: WAITING_FOR_REVIEW`. Build `4` is attached to the External Testers group; everything the review needs was already filled in (export compliance, Test Information, review contact, reviewer notes). Not yet passed — reopen this as failed if Apple rejects it, otherwise tick on approval. Note the tester stays `NOT_INVITED` until the review passes; Apple holds external invites behind approval, so `NOT_INVITED` here is expected, not a missed step
-- [ ] At least one external tester successfully installs and launches the app via TestFlight — walkthrough written (wizard stage 18), not run
+- [x] Internal tester group created and the account holder invited — **done 2026-09-12**: group "Internal Testers" (`isInternalGroup: true`, `hasAccessToAllBuilds: true`), tester `state: INVITED`, build `4` visible to the group. Internal testing is **not** gated on Beta App Review, so this is the route that works today — see "Internal testing group" below
+- [ ] The dev installs and launches build `4` via the internal group — invite sent 2026-09-12, not yet confirmed. This is what unblocks ticket 01's Sentry / sign-up / `profiles`-row items
+- [ ] At least one external tester successfully installs and launches the app via TestFlight — walkthrough written (wizard stage 18), not run; still waiting on Beta App Review
 
 ## Pipeline pivot (2026-09-12): Xcode Cloud replaced with GitHub Actions + Fastlane
 
@@ -163,6 +165,42 @@ and a reviewer note explaining it, rather than inventing credentials
 (Apple actually tries them). Checking that also surfaced that the app has
 no sign-in screen at all — written up as ticket 09.
 
+## Internal testing group (2026-09-12, later session)
+
+External testers are gated behind Beta App Review, which build `4` is still
+waiting on. Internal testers are not — so an internal group was created to get
+the app onto the dev's own device the same day and unblock ticket 01's three
+"never run end-to-end" items.
+
+- Group `Internal Testers` (`isInternalGroup: true`,
+  `hasAccessToAllBuilds: true`), id `9d2575e9-93c3-4e74-8e01-40c2b1620eb0`.
+  `hasAccessToAllBuilds` means builds are visible implicitly — there is no
+  explicit build relationship to create, and `GET /v1/betaGroups/{id}/builds`
+  confirms build `4` is visible to the group.
+- Tester `luk3glennon@gmail.com` (the App Store Connect **account holder**),
+  `state: INVITED`.
+
+**The gotcha, which cost two failed calls:** internal beta groups only accept
+testers whose email matches an App Store Connect **team member**. The tester
+already sitting in the External Testers group uses a *different* address from
+the account holder's, so both
+`POST /v1/betaGroups/{internal}/relationships/betaTesters` (moving the existing
+tester) and `POST /v1/betaTesters` (recreating it against the internal group)
+fail with:
+
+```
+409 STATE_ERROR — "Tester(s) cannot be assigned"
+```
+
+The error names neither the email nor the reason. Creating the tester with the
+account holder's own address against the same group succeeds first try. If this
+recurs, compare `GET /v1/users` → `attributes.username` against the tester email
+before assuming anything else is wrong.
+
+The external group was left untouched — re-verified after the change that it
+still has build `4` attached and `betaReviewState` is still
+`WAITING_FOR_REVIEW`.
+
 ## Held / deferred (2026-09-12)
 
 Everything in this ticket beyond the pipeline's code itself is gated on
@@ -176,14 +214,15 @@ Apple's own systems, which this session has no access to:
   that `com.wakemate.app` — the bundle ID carried over from ticket 01's
   stage 6 — was already taken by another developer; the project has been
   reconciled onto `com.wakemate.alarmcall` instead.
-- **The release pipeline itself has never run** — all the secrets
-  `ios-release.yml` needs now exist, but nobody has clicked "Run workflow"
-  yet (the Fastfile's `require_env!` checks would have failed fast and
-  loud if anything were still missing, rather than producing a broken
-  build silently — that path is now untested since everything's in place).
+- ~~**The release pipeline itself has never run**~~ — **stale, resolved
+  2026-09-12**: it has now run end-to-end six times, the last successfully,
+  producing build `4`. Left struck through rather than deleted because this
+  Held list is otherwise a record of what was true at pivot time.
 - **TestFlight external group, Beta App Review submission, and the tester
   install confirmation** (stages 16-18) all chain off a real signed build
-  existing — none of them can happen first.
+  existing — none of them can happen first. **Partly resolved 2026-09-12**:
+  the group exists and the review is submitted (`WAITING_FOR_REVIEW`); only
+  the install confirmation is still outstanding.
 - What *is* done: `ios/fastlane/{Fastfile,Appfile,Matchfile}`,
   `.github/workflows/ios-release.yml`, `VERSIONING_SYSTEM: apple-generic`
   in `ios/project.yml` (carried over from the pre-pivot plan, still
