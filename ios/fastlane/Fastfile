@@ -34,23 +34,8 @@ platform :ios do
     telemetrydeck_app_id = require_env!("TELEMETRYDECK_APP_ID")
     build_number = require_env!("GITHUB_RUN_NUMBER")
 
-    UI.message("Writing Secrets.xcconfig from CI environment variables...")
-    File.write(File.join(PROJECT_ROOT, "Secrets.xcconfig"), <<~XCCONFIG)
-      SUPABASE_URL = #{escape_url(supabase_url)}
-      SUPABASE_ANON_KEY = #{supabase_anon_key}
-      SENTRY_DSN = #{escape_url(sentry_dsn)}
-      TELEMETRYDECK_APP_ID = #{telemetrydeck_app_id}
-    XCCONFIG
-
-    UI.message("Generating Xcode project...")
-    sh("cd '#{PROJECT_ROOT}' && xcodegen generate")
-
-    UI.message("Stamping build number from GITHUB_RUN_NUMBER (#{build_number})...")
-    # Needs VERSIONING_SYSTEM = apple-generic on the target (project.yml)
-    # and an already-generated project, same as the retired
-    # ci_post_clone.sh's agvtool call — just driven by GitHub's run number
-    # instead of Xcode Cloud's CI_BUILD_NUMBER.
-    sh("cd '#{PROJECT_ROOT}' && agvtool new-version -all #{build_number}")
+    bundle_id = ENV["WAKEMATE_BUNDLE_ID"] || "com.wakemate.alarmcall"
+    team_id = require_env!("APPLE_TEAM_ID")
 
     # Authenticates every following action (match, build_app,
     # upload_to_testflight) against the App Store Connect API — no Apple ID
@@ -65,18 +50,49 @@ platform :ios do
     # Creates the distribution certificate + provisioning profile on first
     # run, reuses them (from the `certificates` branch, see Matchfile) on
     # every run after — nothing for a developer to store or rotate by hand.
+    # Runs before the project is generated because the profile name it
+    # returns is baked into Secrets.xcconfig below.
     match(type: "appstore", readonly: false)
-
-    # xcodegen's generated project defaults to Xcode's automatic signing,
-    # which needs a signed-in Apple ID in the Signing & Capabilities editor
-    # — there is none in CI. Point the project at match's cert/profile
-    # explicitly instead, using the same bundle id passed to match/produce.
-    bundle_id = ENV["WAKEMATE_BUNDLE_ID"] || "com.wakemate.alarmcall"
-    team_id = require_env!("APPLE_TEAM_ID")
     profile_name = lane_context[SharedValues::MATCH_PROVISIONING_PROFILE_MAPPING][bundle_id]
+
+    UI.message("Writing Secrets.xcconfig from CI environment variables...")
+    # Signing settings live here rather than on the xcodebuild command line
+    # (`xcargs`) on purpose: command-line settings apply to *every* target
+    # in the build, including the Swift Package dependencies, which fail
+    # with "<package> does not support provisioning profiles". This file is
+    # the WakeMate target's configFile (project.yml), so it only reaches
+    # that one target. xcodegen's generated project would otherwise default
+    # to Xcode's automatic signing, which needs a signed-in Apple ID in the
+    # Signing & Capabilities editor — there is none in CI.
+    File.write(File.join(PROJECT_ROOT, "Secrets.xcconfig"), <<~XCCONFIG)
+      SUPABASE_URL = #{escape_url(supabase_url)}
+      SUPABASE_ANON_KEY = #{supabase_anon_key}
+      SENTRY_DSN = #{escape_url(sentry_dsn)}
+      TELEMETRYDECK_APP_ID = #{telemetrydeck_app_id}
+
+      DEVELOPMENT_TEAM = #{team_id}
+      CODE_SIGN_STYLE = Manual
+      CODE_SIGN_IDENTITY = Apple Distribution
+      PROVISIONING_PROFILE_SPECIFIER = #{profile_name}
+    XCCONFIG
+
+    UI.message("Generating Xcode project...")
+    sh("cd '#{PROJECT_ROOT}' && xcodegen generate")
+
+    UI.message("Stamping build number from GITHUB_RUN_NUMBER (#{build_number})...")
+    # Needs VERSIONING_SYSTEM = apple-generic on the target (project.yml)
+    # and an already-generated project, same as the retired
+    # ci_post_clone.sh's agvtool call — just driven by GitHub's run number
+    # instead of Xcode Cloud's CI_BUILD_NUMBER.
+    sh("cd '#{PROJECT_ROOT}' && agvtool new-version -all #{build_number}")
+
+    # Same settings again at the project-file level, scoped to the app
+    # target only, so they hold even if the xcconfig is ever overridden by
+    # a target-level build setting.
     update_code_signing_settings(
       use_automatic_signing: false,
       path: File.join(PROJECT_ROOT, "WakeMate.xcodeproj"),
+      targets: ["WakeMate"],
       team_id: team_id,
       code_sign_identity: "Apple Distribution",
       bundle_identifier: bundle_id,
@@ -87,12 +103,6 @@ platform :ios do
       project: File.join(PROJECT_ROOT, "WakeMate.xcodeproj"),
       scheme: "WakeMate",
       export_method: "app-store",
-      # Belt-and-suspenders alongside update_code_signing_settings above:
-      # xcodegen's generated .pbxproj has a pre-existing "no parent for
-      # object Secrets.xcconfig" consistency quirk that can make pbxproj-
-      # level signing edits unreliable, so force the same settings directly
-      # on the xcodebuild command line too, which always wins regardless.
-      xcargs: "DEVELOPMENT_TEAM=#{team_id} CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY=\"Apple Distribution\" PROVISIONING_PROFILE_SPECIFIER=\"#{profile_name}\"",
     )
 
     upload_to_testflight(skip_waiting_for_build_processing: true)
