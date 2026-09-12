@@ -67,6 +67,20 @@ platform :ios do
     # every run after — nothing for a developer to store or rotate by hand.
     match(type: "appstore", readonly: false)
 
+    # xcodegen's generated project defaults to Xcode's automatic signing,
+    # which needs a signed-in Apple ID in the Signing & Capabilities editor
+    # — there is none in CI. Point the project at match's cert/profile
+    # explicitly instead, using the same bundle id passed to match/produce.
+    bundle_id = ENV["WAKEMATE_BUNDLE_ID"] || "com.wakemate.alarmcall"
+    update_code_signing_settings(
+      use_automatic_signing: false,
+      path: File.join(PROJECT_ROOT, "WakeMate.xcodeproj"),
+      team_id: require_env!("APPLE_TEAM_ID"),
+      code_sign_identity: "Apple Distribution",
+      bundle_identifier: bundle_id,
+      profile_name: lane_context[SharedValues::MATCH_PROVISIONING_PROFILE_MAPPING][bundle_id],
+    )
+
     build_app(
       project: File.join(PROJECT_ROOT, "WakeMate.xcodeproj"),
       scheme: "WakeMate",
