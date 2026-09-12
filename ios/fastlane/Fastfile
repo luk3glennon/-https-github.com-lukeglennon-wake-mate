@@ -72,19 +72,27 @@ platform :ios do
     # — there is none in CI. Point the project at match's cert/profile
     # explicitly instead, using the same bundle id passed to match/produce.
     bundle_id = ENV["WAKEMATE_BUNDLE_ID"] || "com.wakemate.alarmcall"
+    team_id = require_env!("APPLE_TEAM_ID")
+    profile_name = lane_context[SharedValues::MATCH_PROVISIONING_PROFILE_MAPPING][bundle_id]
     update_code_signing_settings(
       use_automatic_signing: false,
       path: File.join(PROJECT_ROOT, "WakeMate.xcodeproj"),
-      team_id: require_env!("APPLE_TEAM_ID"),
+      team_id: team_id,
       code_sign_identity: "Apple Distribution",
       bundle_identifier: bundle_id,
-      profile_name: lane_context[SharedValues::MATCH_PROVISIONING_PROFILE_MAPPING][bundle_id],
+      profile_name: profile_name,
     )
 
     build_app(
       project: File.join(PROJECT_ROOT, "WakeMate.xcodeproj"),
       scheme: "WakeMate",
       export_method: "app-store",
+      # Belt-and-suspenders alongside update_code_signing_settings above:
+      # xcodegen's generated .pbxproj has a pre-existing "no parent for
+      # object Secrets.xcconfig" consistency quirk that can make pbxproj-
+      # level signing edits unreliable, so force the same settings directly
+      # on the xcodebuild command line too, which always wins regardless.
+      xcargs: "DEVELOPMENT_TEAM=#{team_id} CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY=\"Apple Distribution\" PROVISIONING_PROFILE_SPECIFIER=\"#{profile_name}\"",
     )
 
     upload_to_testflight(skip_waiting_for_build_processing: true)
