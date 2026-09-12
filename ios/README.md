@@ -77,6 +77,19 @@ walkthrough.
   The step is allowed to fail the whole lane on purpose: shipping a build
   whose crash reports are undiagnosable is the failure it exists to
   prevent, and the release trigger is manual so a retry is one click.
+  Confirmed values (not secrets — hence repository *variables*):
+  `SENTRY_ORG=luk3glennon`, `SENTRY_PROJECT=wakemate-ios`, on Sentry's
+  EU region (`de.sentry.io`).
+  **`SENTRY_PROJECT` must name the project the DSN actually points at.**
+  This org has three projects and the iOS one was auto-named `apple` by
+  Sentry's onboarding (renamed to `wakemate-ios` on 2026-09-12); the two
+  WakeMate-named projects were empty, one of them reserved for the backend
+  DSN in ticket 12. Uploading symbols to the wrong project leaves crashes
+  just as unreadable while appearing to succeed. Verify by matching the
+  project's Settings -> Client Keys DSN against the trailing project id in
+  `SENTRY_DSN` (`4512068537090128`); a project's slug can be renamed
+  freely without breaking the DSN, which addresses the project by that
+  numeric id, not by name.
   Beware a false positive here — `WakeMateApp.swift`'s
   `SentrySDK.capture(message:)` smoke test appears in Sentry regardless,
   since a message carries no stack trace to symbolicate.
