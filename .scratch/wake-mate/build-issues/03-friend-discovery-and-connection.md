@@ -69,13 +69,20 @@ partial/directory search, no auto-created connections.
       what's actually happening — the person pasting in someone else's code
       is the one proposing the connection, not the other way around. Now
       reads "Connect with X?" with Cancel/Connect.
-- [ ] Two test accounts can become mutual friends via handle search — code
-      complete (search → `HomeView`'s new "Friend requests" section for the
-      other side to accept/decline), **not yet confirmed end-to-end** on a
-      real device
-- [ ] Two test accounts can become mutual friends via an Invite Link,
-      including the organic-signup path correctly skipping the accept/decline
-      step — code complete, **not yet confirmed end-to-end** on a real device
+- [x] Two test accounts can become mutual friends via an Invite Link —
+      confirmed working end-to-end on a real device, 2026-09-13.
+- [ ] Two test accounts can become mutual friends via handle search — hit a
+      real bug during the same test pass: sending a request to someone you're
+      already connected with (the two test accounts had just connected via
+      invite code) surfaced the raw Postgres error text ("duplicate key value
+      violates unique constraint...") instead of a readable message. The
+      underlying rule is correct — `friend_connections_unique_pair` is
+      supposed to block a second request between the same two people — the
+      app just wasn't translating it. Fixed 2026-09-13
+      (`FriendServiceError.alreadyConnectedOrPending` in `FriendService.swift`).
+      Still needs a real end-to-end run against two accounts that *aren't*
+      already connected, to confirm the happy path (search → request →
+      other side accepts in `HomeView`) works start to finish.
 
 ## Scope decision: invite "link" is a pasted code, not a tappable link (2026-09-12)
 

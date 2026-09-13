@@ -80,10 +80,24 @@ final class SupabaseFriendService: FriendServicing {
 
     func sendFriendRequest(toUserID userID: UUID) async throws {
         let requesterID = try await client.auth.session.user.id
-        try await client
-            .from("friend_connections")
-            .insert(FriendRequestInsert(requesterID: requesterID, addresseeID: userID))
-            .execute()
+        do {
+            try await client
+                .from("friend_connections")
+                .insert(FriendRequestInsert(requesterID: requesterID, addresseeID: userID))
+                .execute()
+        } catch {
+            // The normalized-pair unique index (friend_connections_unique_pair,
+            // see the migration) rejects a second request between the same two
+            // people in either direction — that's correct, but surfacing its
+            // raw Postgres text ("duplicate key value violates unique
+            // constraint...") to the user is not. Found 2026-09-13 testing
+            // handle search against two accounts already connected via invite
+            // code.
+            if error.localizedDescription.contains("friend_connections_unique_pair") {
+                throw FriendServiceError.alreadyConnectedOrPending
+            }
+            throw error
+        }
     }
 
     func acceptInvite(code: String) async throws {
@@ -108,6 +122,17 @@ final class SupabaseFriendService: FriendServicing {
             ))
             .eq("id", value: requestID)
             .execute()
+    }
+}
+
+enum FriendServiceError: LocalizedError {
+    case alreadyConnectedOrPending
+
+    var errorDescription: String? {
+        switch self {
+        case .alreadyConnectedOrPending:
+            return "You're already connected, or already have a pending request, with them."
+        }
     }
 }
 

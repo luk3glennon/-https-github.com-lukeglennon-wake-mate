@@ -47,6 +47,17 @@ final class FriendOnboardingViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.searchState, .requestSent(profile))
     }
 
+    func test_sendRequest_showsFriendlyMessage_whenAlreadyConnected() async {
+        let mock = MockFriendService()
+        mock.sendFriendRequestErrorToThrow = FriendServiceError.alreadyConnectedOrPending
+        let profile = FriendProfile(userID: UUID(), handle: "alice")
+        let viewModel = FriendOnboardingViewModel(friendService: mock)
+
+        await viewModel.sendRequest(to: profile)
+
+        XCTAssertEqual(viewModel.errorMessage, FriendServiceError.alreadyConnectedOrPending.errorDescription)
+    }
+
     func test_resolveInviteCode_setsResolvedInvite_withoutCreatingConnection() async {
         let mock = MockFriendService()
         let profile = FriendProfile(userID: UUID(), handle: "bob")
@@ -90,6 +101,7 @@ final class FriendOnboardingViewModelTests: XCTestCase {
 
 private final class MockFriendService: FriendServicing, @unchecked Sendable {
     var profileToReturn: FriendProfile?
+    var sendFriendRequestErrorToThrow: Error?
     private(set) var sendFriendRequestCallCount = 0
     private(set) var acceptInviteCallCount = 0
 
@@ -107,6 +119,7 @@ private final class MockFriendService: FriendServicing, @unchecked Sendable {
 
     func sendFriendRequest(toUserID userID: UUID) async throws {
         sendFriendRequestCallCount += 1
+        if let error = sendFriendRequestErrorToThrow { throw error }
     }
 
     func acceptInvite(code: String) async throws {
