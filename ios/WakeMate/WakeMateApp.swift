@@ -7,6 +7,8 @@ import TelemetryDeck
 struct WakeMateApp: App {
     private let authService: AuthServicing
     private let friendService: FriendServicing
+    private let alarmService: AlarmServicing
+    private let alarmSyncCoordinator: AlarmSyncCoordinating
 
     init() {
         SentrySDK.start { options in
@@ -23,11 +25,19 @@ struct WakeMateApp: App {
         let client = SupabaseClient(supabaseURL: AppConfig.supabaseURL, supabaseKey: AppConfig.supabaseAnonKey)
         authService = SupabaseAuthService(client: client)
         friendService = SupabaseFriendService(client: client)
+        alarmService = SupabaseAlarmService(client: client)
+        let alarmKitScheduler = AlarmKitScheduler()
+        alarmSyncCoordinator = AlarmSyncCoordinator(scheduler: alarmKitScheduler, activity: alarmKitScheduler)
     }
 
     var body: some Scene {
         WindowGroup {
-            RootView(authService: authService, friendService: friendService)
+            RootView(
+                authService: authService,
+                friendService: friendService,
+                alarmService: alarmService,
+                alarmSyncCoordinator: alarmSyncCoordinator
+            )
         }
     }
 }

@@ -17,65 +17,74 @@ struct HomeView: View {
     @StateObject private var viewModel: HomeViewModel
     let session: Session
     let friendService: FriendServicing
+    let alarmService: AlarmServicing
+    let alarmSyncCoordinator: AlarmSyncCoordinating
     let onSignOut: () -> Void
     @State private var isAddingFriend = false
 
-    init(session: Session, friendService: FriendServicing, onSignOut: @escaping () -> Void) {
+    init(
+        session: Session,
+        friendService: FriendServicing,
+        alarmService: AlarmServicing,
+        alarmSyncCoordinator: AlarmSyncCoordinating,
+        onSignOut: @escaping () -> Void
+    ) {
         _viewModel = StateObject(wrappedValue: HomeViewModel(friendService: friendService))
         self.session = session
         self.friendService = friendService
+        self.alarmService = alarmService
+        self.alarmSyncCoordinator = alarmSyncCoordinator
         self.onSignOut = onSignOut
     }
 
     var body: some View {
-        VStack(spacing: 12) {
-            Image(systemName: "checkmark.circle.fill")
-                .font(.system(size: 40))
-                .foregroundStyle(.green)
-            Text("You're all set")
-                .font(.title2.bold())
-            Text(session.user.email ?? "")
-                .font(.footnote)
-                .foregroundStyle(.secondary)
-
-            Button("Add a Friend") { isAddingFriend = true }
-                .buttonStyle(.borderedProminent)
-                .padding(.top, 8)
-
-            if !viewModel.pendingRequests.isEmpty {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Friend requests")
-                        .font(.subheadline.bold())
-                    ForEach(viewModel.pendingRequests) { request in
-                        HStack {
-                            Text(request.requesterHandle)
-                            Spacer()
-                            Button("Decline") { Task { await viewModel.respond(to: request, accept: false) } }
-                                .disabled(viewModel.isBusy)
-                            Button("Accept") { Task { await viewModel.respond(to: request, accept: true) } }
-                                .buttonStyle(.borderedProminent)
-                                .disabled(viewModel.isBusy)
-                        }
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 20) {
+                    if !viewModel.pendingRequests.isEmpty {
+                        friendRequestsSection
                     }
-                }
-                .padding(.horizontal, 32)
-                .padding(.top, 16)
-            }
 
+                    AlarmListView(alarmService: alarmService, syncCoordinator: alarmSyncCoordinator)
+                }
+                .padding()
+            }
+            .navigationTitle("Wake Mate")
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button("Add Friend") { isAddingFriend = true }
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Sign Out", role: .destructive, action: onSignOut)
+                }
+            }
+        }
+        .task { await viewModel.loadPendingRequests() }
+        .sheet(isPresented: $isAddingFriend) {
+            FriendOnboardingView(friendService: friendService, onFinish: { isAddingFriend = false })
+        }
+    }
+
+    private var friendRequestsSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Friend requests")
+                .font(.subheadline.bold())
+            ForEach(viewModel.pendingRequests) { request in
+                HStack {
+                    Text(request.requesterHandle)
+                    Spacer()
+                    Button("Decline") { Task { await viewModel.respond(to: request, accept: false) } }
+                        .disabled(viewModel.isBusy)
+                    Button("Accept") { Task { await viewModel.respond(to: request, accept: true) } }
+                        .buttonStyle(.borderedProminent)
+                        .disabled(viewModel.isBusy)
+                }
+            }
             if let errorMessage = viewModel.errorMessage {
                 Text(errorMessage)
                     .font(.footnote)
                     .foregroundStyle(.red)
-                    .padding(.horizontal, 32)
             }
-
-            Button("Sign Out", role: .destructive, action: onSignOut)
-                .padding(.top, 24)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .task { await viewModel.loadPendingRequests() }
-        .sheet(isPresented: $isAddingFriend) {
-            FriendOnboardingView(friendService: friendService, onFinish: { isAddingFriend = false })
         }
     }
 }

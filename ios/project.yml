@@ -39,6 +39,7 @@ targets:
         SUPABASE_ANON_KEY: $(SUPABASE_ANON_KEY)
         SENTRY_DSN: $(SENTRY_DSN)
         TELEMETRYDECK_APP_ID: $(TELEMETRYDECK_APP_ID)
+        NSAlarmKitUsageDescription: "WakeMate uses AlarmKit to ring your alarms reliably, even in silent mode or Focus."
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.wakemate.alarmcall

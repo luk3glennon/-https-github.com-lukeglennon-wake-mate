@@ -4,8 +4,20 @@ import Supabase
 struct RootView: View {
     @StateObject private var appState: AppState
 
-    init(authService: AuthServicing, friendService: FriendServicing) {
-        _appState = StateObject(wrappedValue: AppState(authService: authService, friendService: friendService))
+    init(
+        authService: AuthServicing,
+        friendService: FriendServicing,
+        alarmService: AlarmServicing,
+        alarmSyncCoordinator: AlarmSyncCoordinating
+    ) {
+        _appState = StateObject(
+            wrappedValue: AppState(
+                authService: authService,
+                friendService: friendService,
+                alarmService: alarmService,
+                alarmSyncCoordinator: alarmSyncCoordinator
+            )
+        )
     }
 
     var body: some View {
@@ -20,7 +32,13 @@ struct RootView: View {
             case .friendOnboarding:
                 FriendOnboardingView(friendService: appState.friendService, onFinish: appState.finishFriendOnboarding)
             case .home(let session):
-                HomeView(session: session, friendService: appState.friendService, onSignOut: appState.signOut)
+                HomeView(
+                    session: session,
+                    friendService: appState.friendService,
+                    alarmService: appState.alarmService,
+                    alarmSyncCoordinator: appState.alarmSyncCoordinator,
+                    onSignOut: appState.signOut
+                )
             }
         }
         .task { await appState.start() }
@@ -38,6 +56,8 @@ final class AppState: ObservableObject {
     @Published private(set) var flow: Flow = .authGate
     let authService: AuthServicing
     let friendService: FriendServicing
+    let alarmService: AlarmServicing
+    let alarmSyncCoordinator: AlarmSyncCoordinating
 
     private var session: Session?
     // Set before sign-up/sign-in even starts (not after), so it can never
@@ -45,9 +65,16 @@ final class AppState: ObservableObject {
     // SignUpView.onSignUpAttempt.
     private var needsFriendOnboarding = false
 
-    init(authService: AuthServicing, friendService: FriendServicing) {
+    init(
+        authService: AuthServicing,
+        friendService: FriendServicing,
+        alarmService: AlarmServicing,
+        alarmSyncCoordinator: AlarmSyncCoordinating
+    ) {
         self.authService = authService
         self.friendService = friendService
+        self.alarmService = alarmService
+        self.alarmSyncCoordinator = alarmSyncCoordinator
     }
 
     func start() async {
