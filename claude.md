@@ -8,6 +8,10 @@
 - This applies to conversational replies. Code, commit messages, and
   in-repo documentation (README, ADRs, tickets) can stay technical — those
   are for whoever maintains the code later, not for reading in chat.
+- There's no local Mac/Xcode here, but tickets 01/02 set up a GitHub
+  Actions pipeline that builds and tests real iOS code on Apple's own cloud
+  Macs on every push — so "I can't verify this compiles" is only ever true
+  until the branch is pushed, never a permanent limitation. Say it that way.
 
 ## Context economy rules
 
