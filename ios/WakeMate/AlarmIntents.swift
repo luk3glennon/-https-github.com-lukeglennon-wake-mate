@@ -9,8 +9,8 @@ import AlarmKit
 /// .scratch/wake-mate/research/alarmkit-api.md §5 for the API this is based
 /// on, and AlarmKitScheduler for the other side (schedule/cancel).
 struct StopAlarmIntent: LiveActivityIntent {
-    static var title: LocalizedStringResource = "Stop"
-    static var openAppWhenRun = false
+    static let title: LocalizedStringResource = "Stop"
+    static let openAppWhenRun = false
 
     @Parameter(title: "alarmID")
     var alarmID: String
@@ -40,8 +40,8 @@ struct StopAlarmIntent: LiveActivityIntent {
 /// the unresolved question flagged in
 /// .scratch/wake-mate/research/alarmkit-api.md §5, to be confirmed on-device.
 struct SnoozeAlarmIntent: LiveActivityIntent {
-    static var title: LocalizedStringResource = "Snooze"
-    static var openAppWhenRun = false
+    static let title: LocalizedStringResource = "Snooze"
+    static let openAppWhenRun = false
 
     @Parameter(title: "alarmID")
     var alarmID: String
