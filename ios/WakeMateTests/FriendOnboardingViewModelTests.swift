@@ -3,6 +3,16 @@ import XCTest
 
 @MainActor
 final class FriendOnboardingViewModelTests: XCTestCase {
+    func test_loadMyProfile_setsHandleAndInviteCode() async {
+        let mock = MockFriendService()
+        let viewModel = FriendOnboardingViewModel(friendService: mock)
+
+        await viewModel.loadMyProfile()
+
+        XCTAssertEqual(viewModel.myHandle, "own-handle")
+        XCTAssertEqual(viewModel.myInviteCode, "own-code")
+    }
+
     func test_searchByHandle_setsFound_whenProfileExists() async {
         let mock = MockFriendService()
         let profile = FriendProfile(userID: UUID(), handle: "alice")
@@ -87,8 +97,8 @@ private final class MockFriendService: FriendServicing, @unchecked Sendable {
         profileToReturn
     }
 
-    func myInviteCode() async throws -> String {
-        "own-code"
+    func myProfile() async throws -> (handle: String, inviteCode: String) {
+        ("own-handle", "own-code")
     }
 
     func resolveInviteCode(_ code: String) async throws -> FriendProfile? {

@@ -1,11 +1,14 @@
 import SwiftUI
+import UIKit
 
 /// Inline Minimal layout: compact single column, Skip always available,
-/// Invite Link as a prominent inline row. Shown once, right after a fresh
-/// sign-up — see AppState.flow.
+/// Invite Link as a prominent inline row. Shown automatically once, right
+/// after a fresh sign-up (see AppState.flow), and reopenable any time after
+/// via HomeView's "Add a Friend" button.
 struct FriendOnboardingView: View {
     @StateObject private var viewModel: FriendOnboardingViewModel
     let onFinish: () -> Void
+    @State private var didCopyInviteCode = false
 
     init(friendService: FriendServicing, onFinish: @escaping () -> Void) {
         _viewModel = StateObject(wrappedValue: FriendOnboardingViewModel(friendService: friendService))
@@ -20,7 +23,7 @@ struct FriendOnboardingView: View {
                 inviteSearchView
             }
         }
-        .task { await viewModel.loadMyInviteCode() }
+        .task { await viewModel.loadMyProfile() }
         .onChange(of: viewModel.inviteAccepted) { _, accepted in
             if accepted { onFinish() }
         }
@@ -37,6 +40,17 @@ struct FriendOnboardingView: View {
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 32)
+
+            if let myHandle = viewModel.myHandle {
+                VStack(spacing: 2) {
+                    Text("Your handle")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Text(myHandle)
+                        .font(.system(.body, design: .monospaced))
+                        .textSelection(.enabled)
+                }
+            }
 
             VStack(alignment: .leading, spacing: 8) {
                 HStack {
@@ -77,9 +91,23 @@ struct FriendOnboardingView: View {
                 Text("Your invite link")
                     .font(.subheadline.bold())
                 if let myInviteCode = viewModel.myInviteCode {
-                    Text(myInviteCode)
-                        .font(.system(.body, design: .monospaced))
-                        .textSelection(.enabled)
+                    HStack {
+                        Text(myInviteCode)
+                            .font(.system(.body, design: .monospaced))
+                            .textSelection(.enabled)
+                        Spacer()
+                        Button {
+                            UIPasteboard.general.string = myInviteCode
+                            didCopyInviteCode = true
+                            Task {
+                                try? await Task.sleep(for: .seconds(2))
+                                didCopyInviteCode = false
+                            }
+                        } label: {
+                            Label(didCopyInviteCode ? "Copied" : "Copy", systemImage: didCopyInviteCode ? "checkmark" : "doc.on.doc")
+                                .font(.footnote)
+                        }
+                    }
                 } else {
                     ProgressView()
                 }
@@ -111,12 +139,18 @@ struct FriendOnboardingView: View {
     }
 
     private func pendingAcceptView(for profile: FriendProfile) -> some View {
+        // The current user is the one who typed in someone else's invite
+        // code, so they're the one proposing the connection here — not the
+        // other way around. See FriendOnboardingViewModel.declineResolvedInvite.
         VStack(spacing: 20) {
             Spacer()
-            Text("\(profile.handle) wants to connect")
+            Text("Connect with \(profile.handle)?")
                 .font(.title2.bold())
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 32)
+            Text("They shared this invite code with you.")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
 
             if let errorMessage = viewModel.errorMessage {
                 Text(errorMessage)
@@ -126,9 +160,9 @@ struct FriendOnboardingView: View {
             }
 
             HStack(spacing: 16) {
-                Button("Decline", role: .destructive) { viewModel.declineResolvedInvite() }
+                Button("Cancel", role: .cancel) { viewModel.declineResolvedInvite() }
                     .disabled(viewModel.isBusy)
-                Button("Accept") { Task { await viewModel.acceptResolvedInvite() } }
+                Button("Connect") { Task { await viewModel.acceptResolvedInvite() } }
                     .buttonStyle(.borderedProminent)
                     .disabled(viewModel.isBusy)
             }

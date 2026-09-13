@@ -60,6 +60,15 @@ partial/directory search, no auto-created connections.
       sign in as B"). Found 2026-09-12 during real-device end-to-end
       testing: signing in landed on a bare "You're all set" / Sign Out
       screen with no way to add a friend.
+- [x] Three real-device UX fixes found in the same test pass (2026-09-13):
+      the invite code had no visible way to copy it (added a Copy button
+      with a "Copied" confirmation); the search screen only showed *your*
+      invite code, not your handle, even though a friend can search you by
+      handle too (now shown above the search field); and the resolved-invite
+      screen read "X wants to connect" with Accept/Decline, backwards from
+      what's actually happening — the person pasting in someone else's code
+      is the one proposing the connection, not the other way around. Now
+      reads "Connect with X?" with Cancel/Connect.
 - [ ] Two test accounts can become mutual friends via handle search — code
       complete (search → `HomeView`'s new "Friend requests" section for the
       other side to accept/decline), **not yet confirmed end-to-end** on a

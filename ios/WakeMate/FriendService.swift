@@ -28,7 +28,10 @@ struct IncomingFriendRequest: Decodable, Sendable, Equatable, Identifiable {
 protocol FriendServicing: Sendable {
     /// Exact-handle-only lookup; nil if no other user has that handle.
     func searchProfile(byHandle handle: String) async throws -> FriendProfile?
-    func myInviteCode() async throws -> String
+    /// The current user's own handle (to give out for others to search) and
+    /// invite code (to hand out directly), fetched together since both come
+    /// off the same profile row.
+    func myProfile() async throws -> (handle: String, inviteCode: String)
     /// Read-only: never creates a connection. See FriendService's header.
     func resolveInviteCode(_ code: String) async throws -> FriendProfile?
     /// Sends a pending request as the current user (the "explicit accept
@@ -56,15 +59,15 @@ final class SupabaseFriendService: FriendServicing {
         return results.first
     }
 
-    func myInviteCode() async throws -> String {
-        struct Row: Decodable { let invite_code: String }
+    func myProfile() async throws -> (handle: String, inviteCode: String) {
+        struct Row: Decodable { let handle: String; let invite_code: String }
         let row: Row = try await client
             .from("profiles")
-            .select("invite_code")
+            .select("handle, invite_code")
             .single()
             .execute()
             .value
-        return row.invite_code
+        return (row.handle, row.invite_code)
     }
 
     func resolveInviteCode(_ code: String) async throws -> FriendProfile? {

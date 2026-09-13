@@ -15,6 +15,7 @@ final class FriendOnboardingViewModel: ObservableObject {
     /// Set only by resolving a code (read-only lookup) — never touches
     /// friend_connections. Accepting/declining is the only write path.
     @Published private(set) var resolvedInvite: FriendProfile?
+    @Published private(set) var myHandle: String?
     @Published private(set) var myInviteCode: String?
     @Published private(set) var isBusy = false
     @Published var errorMessage: String?
@@ -26,9 +27,11 @@ final class FriendOnboardingViewModel: ObservableObject {
         self.friendService = friendService
     }
 
-    func loadMyInviteCode() async {
+    func loadMyProfile() async {
         do {
-            myInviteCode = try await friendService.myInviteCode()
+            let profile = try await friendService.myProfile()
+            myHandle = profile.handle
+            myInviteCode = profile.inviteCode
         } catch {
             errorMessage = error.localizedDescription
         }
