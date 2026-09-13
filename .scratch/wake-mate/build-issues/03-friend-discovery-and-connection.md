@@ -7,6 +7,11 @@ partial/directory search, no auto-created connections.
 
 **Blocked by:** nothing — 01 (Foundation) closed 2026-09-12.
 
+**CLOSED 2026-09-13** by the dev. Sign-in, exact-handle search, and invite
+codes all confirmed working end-to-end on a real device with two real
+accounts, both directions. Password reset and real tappable invite links
+remain deliberately out of scope — see Held/deferred below.
+
 > Sign-in was folded in here on 2026-09-12 at the dev's request; it had been
 > tracked separately as ticket 09, which is now a pointer to this file. The
 > filename still says `03-friend-discovery-and-connection.md` — left alone
@@ -71,7 +76,7 @@ partial/directory search, no auto-created connections.
       reads "Connect with X?" with Cancel/Connect.
 - [x] Two test accounts can become mutual friends via an Invite Link —
       confirmed working end-to-end on a real device, 2026-09-13.
-- [ ] Two test accounts can become mutual friends via handle search — hit a
+- [x] Two test accounts can become mutual friends via handle search — hit a
       real bug during the same test pass: sending a request to someone you're
       already connected with (the two test accounts had just connected via
       invite code) surfaced the raw Postgres error text ("duplicate key value
@@ -80,9 +85,9 @@ partial/directory search, no auto-created connections.
       supposed to block a second request between the same two people — the
       app just wasn't translating it. Fixed 2026-09-13
       (`FriendServiceError.alreadyConnectedOrPending` in `FriendService.swift`).
-      Still needs a real end-to-end run against two accounts that *aren't*
-      already connected, to confirm the happy path (search → request →
-      other side accepts in `HomeView`) works start to finish.
+      Confirmed 2026-09-13: happy path (search → request → other side
+      accepts in `HomeView`) works start to finish against two accounts that
+      weren't already connected.
 
 ## Scope decision: invite "link" is a pasted code, not a tappable link (2026-09-12)
 
