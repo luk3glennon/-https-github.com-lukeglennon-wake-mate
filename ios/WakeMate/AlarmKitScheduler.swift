@@ -29,7 +29,14 @@ final class AlarmKitScheduler: AlarmSchedulingServicing, AlarmActivityTracking, 
     /// Must match the file added at ios/WakeMate/Sounds/default_alarm_tone.wav
     /// (bundled into the app target). This is a placeholder tone — there's
     /// no real designed alarm sound yet, see the ticket write-up.
-    private let soundName = "default_alarm_tone"
+    ///
+    /// Unlike UNNotificationSoundName, AlertConfiguration.AlertSound.named(_:)
+    /// requires the file extension in the name — omitting it silently falls
+    /// back to the system's own alarm tone instead of erroring. (Confirmed
+    /// on-device 2026-09-13: playing the system default tone, not the bundled
+    /// one, was this bug, not the separate iOS 26.0 .named(_:) issue noted
+    /// below, since the device was already on 26.6.1.)
+    private let soundName = "default_alarm_tone.wav"
 
     /// Per ADR-0003, snooze duration is fixed/global for the MVP, not
     /// per-alarm — matches the `snooze_duration_minutes` default in
