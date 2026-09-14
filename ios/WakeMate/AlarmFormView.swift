@@ -2,9 +2,7 @@ import SwiftUI
 
 /// Shared create/edit sheet for an Alarm. Snooze settings aren't editable
 /// here — ADR-0003 fixes snooze duration/count to a single global default
-/// for the MVP, so there's nothing per-Alarm to expose yet. Library-override
-/// mode isn't editable here either: it depends on a chosen Library clip,
-/// which doesn't exist until ticket 05.
+/// for the MVP, so there's nothing per-Alarm to expose yet.
 struct AlarmFormView: View {
     enum Mode {
         case create
@@ -17,26 +15,44 @@ struct AlarmFormView: View {
     }
 
     let mode: Mode
-    let onSave: (_ label: String?, _ wakeTime: WakeTime, _ repeatDays: [Int]) async -> Void
+    let libraryClips: [LibraryClip]
+    let onSave: (
+        _ label: String?,
+        _ wakeTime: WakeTime,
+        _ repeatDays: [Int],
+        _ alarmMode: AlarmMode,
+        _ libraryOverrideAlarmCallID: UUID?
+    ) async -> Void
 
     @Environment(\.dismiss) private var dismiss
     @State private var label: String
     @State private var time: Date
     @State private var selectedDays: Set<Int>
+    @State private var alarmMode: AlarmMode
+    @State private var selectedClipID: UUID?
     @State private var isSaving = false
 
-    init(mode: Mode, onSave: @escaping (String?, WakeTime, [Int]) async -> Void) {
+    init(
+        mode: Mode,
+        libraryClips: [LibraryClip] = [],
+        onSave: @escaping (String?, WakeTime, [Int], AlarmMode, UUID?) async -> Void
+    ) {
         self.mode = mode
+        self.libraryClips = libraryClips
         self.onSave = onSave
         switch mode {
         case .create:
             _label = State(initialValue: "")
             _time = State(initialValue: Date())
             _selectedDays = State(initialValue: [])
+            _alarmMode = State(initialValue: .autoPlay)
+            _selectedClipID = State(initialValue: nil)
         case .edit(let alarm):
             _label = State(initialValue: alarm.label ?? "")
             _time = State(initialValue: Self.date(from: alarm.wakeTime))
             _selectedDays = State(initialValue: Set(alarm.repeatDays))
+            _alarmMode = State(initialValue: alarm.mode)
+            _selectedClipID = State(initialValue: alarm.libraryOverrideAlarmCallID)
         }
     }
 
@@ -55,6 +71,29 @@ struct AlarmFormView: View {
                     HStack(spacing: 8) {
                         ForEach(Self.weekdays, id: \.day) { weekday in
                             dayToggle(weekday)
+                        }
+                    }
+                }
+                Section("Wake sound") {
+                    Picker("Wake sound", selection: $alarmMode) {
+                        Text("Default").tag(AlarmMode.autoPlay)
+                        Text("Library clip").tag(AlarmMode.libraryOverride)
+                    }
+                    .pickerStyle(.segmented)
+                    .labelsHidden()
+
+                    if alarmMode == .libraryOverride {
+                        if libraryClips.isEmpty {
+                            Text("Record a clip in your Library first to use it here.")
+                                .font(.footnote)
+                                .foregroundStyle(.secondary)
+                        } else {
+                            Picker("Clip", selection: $selectedClipID) {
+                                Text("Choose a clip").tag(UUID?.none)
+                                ForEach(libraryClips) { clip in
+                                    Text(clip.displayTitle).tag(UUID?.some(clip.id))
+                                }
+                            }
                         }
                     }
                 }
@@ -97,7 +136,13 @@ struct AlarmFormView: View {
         let components = Calendar.current.dateComponents([.hour, .minute], from: time)
         let wakeTime = WakeTime(hour: components.hour ?? 0, minute: components.minute ?? 0)
         let trimmedLabel = label.trimmingCharacters(in: .whitespacesAndNewlines)
-        await onSave(trimmedLabel.isEmpty ? nil : trimmedLabel, wakeTime, selectedDays.sorted())
+        // A library_override mode with no chosen clip isn't a valid combination
+        // (see LibraryOverridePlaybackCoordinator, which requires a non-nil
+        // clip id) — falling back to autoPlay keeps that invariant true here
+        // rather than at every downstream reader.
+        let resolvedMode: AlarmMode = (alarmMode == .libraryOverride && selectedClipID != nil) ? .libraryOverride : .autoPlay
+        let resolvedClipID = resolvedMode == .libraryOverride ? selectedClipID : nil
+        await onSave(trimmedLabel.isEmpty ? nil : trimmedLabel, wakeTime, selectedDays.sorted(), resolvedMode, resolvedClipID)
         dismiss()
     }
 

@@ -9,6 +9,10 @@ struct WakeMateApp: App {
     private let friendService: FriendServicing
     private let alarmService: AlarmServicing
     private let alarmSyncCoordinator: AlarmSyncCoordinating
+    private let alarmCallService: AlarmCallServicing
+    private let audioRecorder: AudioRecording
+    private let consentService: ConsentServicing
+    private let libraryOverridePlayback: LibraryOverridePlaybackCoordinator
 
     init() {
         SentrySDK.start { options in
@@ -28,6 +32,14 @@ struct WakeMateApp: App {
         alarmService = SupabaseAlarmService(client: client)
         let alarmKitScheduler = AlarmKitScheduler()
         alarmSyncCoordinator = AlarmSyncCoordinator(scheduler: alarmKitScheduler, activity: alarmKitScheduler)
+        alarmCallService = SupabaseAlarmCallService(client: client)
+        audioRecorder = AVFoundationAudioRecorder()
+        consentService = SupabaseConsentService(client: client)
+        libraryOverridePlayback = LibraryOverridePlaybackCoordinator(
+            alarmService: alarmService,
+            alarmCallService: alarmCallService,
+            activityTracking: alarmKitScheduler
+        )
     }
 
     var body: some Scene {
@@ -36,7 +48,11 @@ struct WakeMateApp: App {
                 authService: authService,
                 friendService: friendService,
                 alarmService: alarmService,
-                alarmSyncCoordinator: alarmSyncCoordinator
+                alarmSyncCoordinator: alarmSyncCoordinator,
+                alarmCallService: alarmCallService,
+                audioRecorder: audioRecorder,
+                consentService: consentService,
+                libraryOverridePlayback: libraryOverridePlayback
             )
         }
     }

@@ -39,7 +39,7 @@ extension WakeTime: Codable {
     }
 }
 
-enum AlarmMode: String, Codable, Sendable, Equatable {
+enum AlarmMode: String, Codable, Sendable, Hashable {
     case autoPlay = "auto_play"
     case libraryOverride = "library_override"
 }

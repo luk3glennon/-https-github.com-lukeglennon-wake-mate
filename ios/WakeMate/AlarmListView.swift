@@ -5,9 +5,13 @@ struct AlarmListView: View {
     @State private var isCreating = false
     @State private var editingAlarm: Alarm?
 
-    init(alarmService: AlarmServicing, syncCoordinator: AlarmSyncCoordinating) {
+    init(alarmService: AlarmServicing, syncCoordinator: AlarmSyncCoordinating, alarmCallService: AlarmCallServicing) {
         _viewModel = StateObject(
-            wrappedValue: AlarmListViewModel(alarmService: alarmService, syncCoordinator: syncCoordinator)
+            wrappedValue: AlarmListViewModel(
+                alarmService: alarmService,
+                syncCoordinator: syncCoordinator,
+                alarmCallService: alarmCallService
+            )
         )
     }
 
@@ -47,15 +51,31 @@ struct AlarmListView: View {
                     .foregroundStyle(.red)
             }
         }
-        .task { await viewModel.load() }
+        .task {
+            await viewModel.load()
+            await viewModel.loadLibraryClips()
+        }
         .sheet(isPresented: $isCreating) {
-            AlarmFormView(mode: .create) { label, wakeTime, repeatDays in
-                await viewModel.createAlarm(label: label, wakeTime: wakeTime, repeatDays: repeatDays)
+            AlarmFormView(mode: .create, libraryClips: viewModel.libraryClips) { label, wakeTime, repeatDays, alarmMode, clipID in
+                await viewModel.createAlarm(
+                    label: label,
+                    wakeTime: wakeTime,
+                    repeatDays: repeatDays,
+                    mode: alarmMode,
+                    libraryOverrideAlarmCallID: clipID
+                )
             }
         }
         .sheet(item: $editingAlarm) { alarm in
-            AlarmFormView(mode: .edit(alarm)) { label, wakeTime, repeatDays in
-                await viewModel.updateAlarm(alarm, label: label, wakeTime: wakeTime, repeatDays: repeatDays)
+            AlarmFormView(mode: .edit(alarm), libraryClips: viewModel.libraryClips) { label, wakeTime, repeatDays, alarmMode, clipID in
+                await viewModel.updateAlarm(
+                    alarm,
+                    label: label,
+                    wakeTime: wakeTime,
+                    repeatDays: repeatDays,
+                    mode: alarmMode,
+                    libraryOverrideAlarmCallID: clipID
+                )
             }
         }
     }

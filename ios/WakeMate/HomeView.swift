@@ -19,14 +19,21 @@ struct HomeView: View {
     let friendService: FriendServicing
     let alarmService: AlarmServicing
     let alarmSyncCoordinator: AlarmSyncCoordinating
+    let alarmCallService: AlarmCallServicing
+    let audioRecorder: AudioRecording
+    let consentService: ConsentServicing
     let onSignOut: () -> Void
     @State private var isAddingFriend = false
+    @State private var isShowingLibrary = false
 
     init(
         session: Session,
         friendService: FriendServicing,
         alarmService: AlarmServicing,
         alarmSyncCoordinator: AlarmSyncCoordinating,
+        alarmCallService: AlarmCallServicing,
+        audioRecorder: AudioRecording,
+        consentService: ConsentServicing,
         onSignOut: @escaping () -> Void
     ) {
         _viewModel = StateObject(wrappedValue: HomeViewModel(friendService: friendService))
@@ -34,6 +41,9 @@ struct HomeView: View {
         self.friendService = friendService
         self.alarmService = alarmService
         self.alarmSyncCoordinator = alarmSyncCoordinator
+        self.alarmCallService = alarmCallService
+        self.audioRecorder = audioRecorder
+        self.consentService = consentService
         self.onSignOut = onSignOut
     }
 
@@ -45,7 +55,11 @@ struct HomeView: View {
                         friendRequestsSection
                     }
 
-                    AlarmListView(alarmService: alarmService, syncCoordinator: alarmSyncCoordinator)
+                    AlarmListView(
+                        alarmService: alarmService,
+                        syncCoordinator: alarmSyncCoordinator,
+                        alarmCallService: alarmCallService
+                    )
                 }
                 .padding()
             }
@@ -55,6 +69,7 @@ struct HomeView: View {
                     Button("Add Friend") { isAddingFriend = true }
                 }
                 ToolbarItem(placement: .topBarTrailing) {
+                    Button("Library") { isShowingLibrary = true }
                     Button("Sign Out", role: .destructive, action: onSignOut)
                 }
             }
@@ -62,6 +77,9 @@ struct HomeView: View {
         .task { await viewModel.loadPendingRequests() }
         .sheet(isPresented: $isAddingFriend) {
             FriendOnboardingView(friendService: friendService, onFinish: { isAddingFriend = false })
+        }
+        .sheet(isPresented: $isShowingLibrary) {
+            LibraryView(audioRecorder: audioRecorder, alarmCallService: alarmCallService, consentService: consentService)
         }
     }
 

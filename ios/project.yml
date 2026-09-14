@@ -40,6 +40,7 @@ targets:
         SENTRY_DSN: $(SENTRY_DSN)
         TELEMETRYDECK_APP_ID: $(TELEMETRYDECK_APP_ID)
         NSAlarmKitUsageDescription: "WakeMate uses AlarmKit to ring your alarms reliably, even in silent mode or Focus."
+        NSMicrophoneUsageDescription: "WakeMate needs microphone access to record Alarm Calls."
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.wakemate.alarmcall
