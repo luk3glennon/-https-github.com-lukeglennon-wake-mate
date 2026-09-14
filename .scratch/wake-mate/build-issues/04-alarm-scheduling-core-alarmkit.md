@@ -4,16 +4,17 @@
 
 **Blocked by:** 01 (Foundation: account creation + deploy pipeline)
 
-**Status (2026-09-14): Implemented, code-reviewed, and on-device-verified,**
-including the fixed-tone and dismiss/stop paths and firing under silent/Focus
-mode. Committed across `224a02b` (initial implementation), `92d9997`
-(unrelated CLAUDE.md note), `76d67eb` and `8c8415d` (post-review, on-device
-bug fixes), and `f9e6eb7` (this status) on `main`.
+**Status (2026-09-14): Done.** Implemented, code-reviewed, and fully
+on-device-verified — including the fixed-tone and dismiss/stop paths, firing
+under silent/Focus mode, and surviving a force-quit. Committed across
+`224a02b` (initial implementation), `92d9997` (unrelated CLAUDE.md note),
+`76d67eb` and `8c8415d` (post-review, on-device bug fixes), and `f9e6eb7`/
+`cf54280` (status updates) on `main`.
 
 - [x] `alarms` table (`owner_id`, `label`, `wake_time`, `repeat_days`, `mode`, `library_override_alarm_call_id`, `snooze_enabled`, `snooze_duration_minutes`, timestamps)
 - [x] Create/edit/delete Alarm UI
 - [x] AlarmKit runtime authorization (`NSAlarmKitUsageDescription`) requested and handled
-- [x] Alarm scheduled via AlarmKit fires through silent mode/Focus/DND and survives force-quit, presenting full-screen/Lock Screen UI — confirmed on-device (iOS 26.6.1): fires at wake time, and confirmed specifically under silent mode and Focus; force-quit survival specifically not yet separately exercised
+- [x] Alarm scheduled via AlarmKit fires through silent mode/Focus/DND and survives force-quit, presenting full-screen/Lock Screen UI — confirmed on-device (iOS 26.6.1): fires at wake time, confirmed under silent mode, Focus, and after a full force-quit of the app
 - [x] Empty Queue + empty Library falls back to the bundled default alarm tone — bug fixed 2026-09-13 (see Decisions) and confirmed on-device 2026-09-14: the bundled tone now plays
 - [x] Snooze uses AlarmKit's native snooze `AppIntent`, replaying the same tone on every re-ring; duration/count fixed/global for MVP — confirmed on-device: snoozed alarm re-rang 9 minutes later
 - [x] Dismiss stops playback and cancels any pending snooze, with no other side effects — confirmed on-device 2026-09-14: Stop silences the alarm correctly
@@ -68,12 +69,11 @@ bug fixes), and `f9e6eb7` (this status) on `main`.
 
 ## Still open
 
-- Force-quit survival hasn't been separately exercised on-device (silent
-  mode and Focus have both now been confirmed).
-- Two facts noted as unconfirmed-from-an-official-source in
-  `.scratch/wake-mate/research/alarmkit-api.md` remain unconfirmed: whether
-  tapping the alert's `.countdown`-behavior secondary button alone already
-  re-arms the ring (making `SnoozeAlarmIntent`'s explicit `countdown(id:)`
-  call redundant-but-harmless), and the exact case names on
-  `AlarmKit.Alarm.State`. Neither is blocking — the app's own explicit calls
-  cover the behavior either way.
+Nothing blocking. Two facts noted as unconfirmed-from-an-official-source in
+`.scratch/wake-mate/research/alarmkit-api.md` remain unconfirmed: whether
+tapping the alert's `.countdown`-behavior secondary button alone already
+re-arms the ring (making `SnoozeAlarmIntent`'s explicit `countdown(id:)`
+call redundant-but-harmless), and the exact case names on
+`AlarmKit.Alarm.State`. Neither matters in practice — the app's own explicit
+calls cover the behavior either way, and on-device testing has now exercised
+every ticket requirement.
