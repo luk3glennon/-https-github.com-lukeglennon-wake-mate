@@ -28,7 +28,10 @@ struct WakeMateAlarmMetadata: AlarmMetadata {}
 final class AlarmKitScheduler: AlarmSchedulingServicing, AlarmActivityTracking, Sendable {
     /// Must match the file added at ios/WakeMate/Sounds/default_alarm_tone.wav
     /// (bundled into the app target). This is a placeholder tone — there's
-    /// no real designed alarm sound yet, see the ticket write-up.
+    /// no real designed alarm sound yet, see the ticket write-up. Used for
+    /// every non-library_override alarm, and as the fallback for a
+    /// library_override alarm whose clip couldn't be prepared in time (see
+    /// `soundPreparer`).
     ///
     /// Unlike UNNotificationSoundName, AlertConfiguration.AlertSound.named(_:)
     /// requires the file extension in the name — omitting it silently falls
@@ -54,10 +57,12 @@ final class AlarmKitScheduler: AlarmSchedulingServicing, AlarmActivityTracking, 
     /// extension is the fix; nothing else here should need to change.
     private let snoozeDuration: AlarmKit.Alarm.CountdownDuration = .init(preAlert: nil, postAlert: 9 * 60)
 
+    private let soundPreparer: LibraryOverrideSoundPreparing
     private let activeIDs = OSAllocatedUnfairLock(initialState: Set<UUID>())
     private let observeTask: Task<Void, Never>
 
-    init() {
+    init(soundPreparer: LibraryOverrideSoundPreparing) {
+        self.soundPreparer = soundPreparer
         let activeIDs = self.activeIDs
         observeTask = Task {
             for await alarms in AlarmManager.shared.alarmUpdates {
@@ -118,13 +123,25 @@ final class AlarmKitScheduler: AlarmSchedulingServicing, AlarmActivityTracking, 
             tintColor: .accentColor
         )
 
+        // A library_override alarm gets its own recorded clip as the actual
+        // alert sound (materialized into Library/Sounds by soundPreparer)
+        // rather than only ever hearing this fall back to the placeholder
+        // tone when preparation fails or hasn't happened yet. This is the
+        // iOS 26.0 .named(_:) issue referenced in soundName's doc comment
+        // above: a reported bug where a custom file plays a system error/
+        // timeout tone instead, with a fix only targeted (not confirmed
+        // shipped) for 26.1 — see .scratch/wake-mate/research/alarmkit-api.md
+        // §4. Needs on-device confirmation, same as everything else about
+        // fire-time playback in this ticket.
+        let resolvedSoundName = await soundPreparer.prepareSoundFileName(for: alarm) ?? soundName
+
         let configuration = AlarmManager.AlarmConfiguration(
             countdownDuration: snoozeDuration,
             schedule: schedule,
             attributes: attributes,
             stopIntent: StopAlarmIntent(alarmID: alarm.id.uuidString),
             secondaryIntent: SnoozeAlarmIntent(alarmID: alarm.id.uuidString),
-            sound: .named(soundName)
+            sound: .named(resolvedSoundName)
         )
 
         _ = try await AlarmManager.shared.schedule(id: alarm.id, configuration: configuration)

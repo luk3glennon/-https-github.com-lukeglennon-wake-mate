@@ -13,8 +13,6 @@ final class RecordAlarmCallViewModel: ObservableObject {
     /// of, the OS prompt).
     @Published var isPresentingConsentSheet = false
 
-    static let maxDuration: TimeInterval = AVFoundationAudioRecorder.maxDuration
-
     private let audioRecorder: AudioRecording
     private let alarmCallService: AlarmCallServicing
     private let consentService: ConsentServicing
@@ -100,7 +98,7 @@ final class RecordAlarmCallViewModel: ObservableObject {
                 try? await Task.sleep(nanoseconds: 200_000_000)
                 if Task.isCancelled { return }
                 elapsedSeconds += 0.2
-                if elapsedSeconds >= Self.maxDuration {
+                if elapsedSeconds >= audioRecorder.maxDuration {
                     await stopRecording()
                     return
                 }

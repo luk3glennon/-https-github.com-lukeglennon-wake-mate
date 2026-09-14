@@ -10,6 +10,9 @@ enum MicPermissionStatus: Sendable {
 /// Thin seam over AVAudioRecorder — see AuthServicing for why this pattern
 /// exists (view-model unit testing without touching a real microphone).
 protocol AudioRecording: Sendable {
+    /// The hard cap on a single recording, in seconds (ticket 13's locked
+    /// recording format).
+    var maxDuration: TimeInterval { get }
     func permissionStatus() -> MicPermissionStatus
     /// Triggers the OS mic permission prompt if not yet determined. Returns
     /// whether recording is currently permitted.
@@ -31,10 +34,12 @@ protocol AudioRecording: Sendable {
 ///
 /// Not thread-safe by design — every call is expected to come from the
 /// view model driving the record button, which is `@MainActor`. Marked
-/// `@unchecked Sendable` on that basis, matching AlarmKitScheduler's own
-/// note about where its thread-safety guarantees actually come from.
+/// `@unchecked Sendable` on that basis: the compiler can't see that
+/// MainActor-only calling convention, so it has to be asserted here instead
+/// of derived.
 final class AVFoundationAudioRecorder: NSObject, AudioRecording, @unchecked Sendable {
     static let maxDuration: TimeInterval = 30
+    var maxDuration: TimeInterval { Self.maxDuration }
 
     private var recorder: AVAudioRecorder?
 

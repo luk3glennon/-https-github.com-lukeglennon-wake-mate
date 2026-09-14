@@ -1,20 +1,24 @@
 import Foundation
 import AVFoundation
 
-/// Resolves and plays a `library_override` Alarm's chosen clip while it's
-/// ringing/snoozed. The full teaser + tap-through + Queue/auto_play
-/// playback pipeline is ticket 07's job (blocked by ticket 06's Share/Queue
-/// tables); this reuses the activity-tracking seam ticket 04 already built
-/// (`AlarmActivityTracking`) to cover this ticket's own scoped requirement
-/// ("it plays correctly when that Alarm fires") without inventing new,
-/// device-only-verifiable AlarmKit tap-detection mechanics ahead of time.
-///
-/// Driven by the app coming to the foreground (RootView's scenePhase
-/// observer) — this is the only point our process is guaranteed to be
-/// running during a ring, since AlarmKit's own alert UI (ticket 04) needs
-/// no app process at all.
+/// Fallback playback for a `library_override` Alarm's chosen clip while it's
+/// ringing/snoozed. The primary mechanism is now `LibraryOverrideSoundPreparer`
+/// materializing the clip into `Library/Sounds` so AlarmKit itself plays it
+/// as the alert's own sound at fire time, phone locked or not — this
+/// coordinator only still matters when that preparation didn't happen in
+/// time (e.g. offline, or a sync that hadn't run yet), in which case the
+/// Alarm rings with the placeholder tone instead. Driven by the app coming
+/// to the foreground (RootView's scenePhase observer) — this is the only
+/// point our process is guaranteed to be running during a ring, since
+/// AlarmKit's own alert UI (ticket 04) needs no app process at all. The full
+/// teaser + tap-through + Queue/auto_play playback pipeline is still ticket
+/// 07's job (blocked by ticket 06's Share/Queue tables).
+protocol LibraryOverridePlaybackCoordinating: Sendable {
+    func playIfNeeded() async
+}
+
 @MainActor
-final class LibraryOverridePlaybackCoordinator: NSObject, ObservableObject {
+final class LibraryOverridePlaybackCoordinator: LibraryOverridePlaybackCoordinating {
     private let alarmService: AlarmServicing
     private let alarmCallService: AlarmCallServicing
     private let activityTracking: AlarmActivityTracking

@@ -133,6 +133,7 @@ private enum TestError: Error, LocalizedError {
 }
 
 private final class MockAudioRecorder: AudioRecording, @unchecked Sendable {
+    var maxDuration: TimeInterval = 30
     var permissionStatusToReturn: MicPermissionStatus = .granted
     var requestPermissionResult = true
     var startRecordingResult: Result<URL, Error> = .success(URL(fileURLWithPath: "/tmp/test-clip.m4a"))

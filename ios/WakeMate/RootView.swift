@@ -4,7 +4,7 @@ import Supabase
 struct RootView: View {
     @StateObject private var appState: AppState
     @Environment(\.scenePhase) private var scenePhase
-    private let libraryOverridePlayback: LibraryOverridePlaybackCoordinator
+    private let libraryOverridePlayback: LibraryOverridePlaybackCoordinating
 
     init(
         authService: AuthServicing,
@@ -14,7 +14,7 @@ struct RootView: View {
         alarmCallService: AlarmCallServicing,
         audioRecorder: AudioRecording,
         consentService: ConsentServicing,
-        libraryOverridePlayback: LibraryOverridePlaybackCoordinator
+        libraryOverridePlayback: LibraryOverridePlaybackCoordinating
     ) {
         _appState = StateObject(
             wrappedValue: AppState(
