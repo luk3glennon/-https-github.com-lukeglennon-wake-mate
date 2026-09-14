@@ -11,4 +11,4 @@
 - [ ] Mic-recording consent captured in-app alongside the OS mic prompt, logged to `consent_log`
 - [ ] Library screen listing a user's own recorded clips
 - [ ] User can set an Alarm to `library_override` mode pointing at a chosen Library clip, and it plays correctly when that Alarm fires
-- [ ] Receiving a new Alarm Call resets the Alarm back to `auto_play` mode (verify the mode-reset rule even though real Shares land in ticket 07 — cover it at minimum via a direct data-level test)
+- [x] Receiving a new Alarm Call resets the Alarm back to `auto_play` mode (verify the mode-reset rule even though real Shares land in ticket 07 — cover it at minimum via a direct data-level test) — confirmed 2026-09-14: `supabase/tests/reset_alarm_to_auto_play_test.sql` run by hand via the Supabase Dashboard SQL Editor against the real project, ran clean (no error raised), i.e. PASS.
