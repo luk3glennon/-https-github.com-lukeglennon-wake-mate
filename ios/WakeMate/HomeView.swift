@@ -70,6 +70,8 @@ struct HomeView: View {
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("Library") { isShowingLibrary = true }
+                }
+                ToolbarItem(placement: .topBarTrailing) {
                     Button("Sign Out", role: .destructive, action: onSignOut)
                 }
             }
