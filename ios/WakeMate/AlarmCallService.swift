@@ -34,7 +34,11 @@ final class SupabaseAlarmCallService: AlarmCallServicing {
     func upload(fileURL: URL, durationSeconds: Double) async throws -> AlarmCall {
         let ownerID = try await client.auth.session.user.id
         let alarmCallID = UUID()
-        let storagePath = "\(ownerID)/\(alarmCallID).m4a"
+        // Swift's UUID string interpolation is uppercase, but Postgres's
+        // auth.uid()::text (compared against this path's folder segment by
+        // the storage.objects RLS policy) is lowercase - an uppercase path
+        // here makes that comparison fail every time. Lowercase to match.
+        let storagePath = "\(ownerID.uuidString.lowercased())/\(alarmCallID.uuidString.lowercased()).m4a"
         let fileData = try Data(contentsOf: fileURL)
 
         // Presigned upload per ticket 11 (the initial alarm_calls upload is
