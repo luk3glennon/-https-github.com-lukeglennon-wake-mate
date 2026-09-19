@@ -124,7 +124,7 @@ private final class MockAlarmCallService: AlarmCallServicing, @unchecked Sendabl
     private(set) var didFetchAlarmCall = false
     private(set) var lastDownloadedStoragePath: String?
 
-    func upload(fileURL: URL, durationSeconds: Double) async throws -> AlarmCall {
+    func upload(fileURL: URL, durationSeconds: Double, title: String?) async throws -> AlarmCall {
         throw TestError.boom
     }
 

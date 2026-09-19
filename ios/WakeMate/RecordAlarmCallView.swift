@@ -26,26 +26,39 @@ struct RecordAlarmCallView: View {
             VStack(spacing: 24) {
                 Spacer()
 
-                Text(timeText)
-                    .font(.system(size: 48, weight: .bold, design: .monospaced))
-                Text("Up to 30 seconds")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-
-                Button {
-                    Task {
-                        if viewModel.isRecording {
-                            await viewModel.stopRecording()
-                        } else {
-                            await viewModel.startRecording()
-                        }
+                if viewModel.isReviewingClip {
+                    Text(timeText)
+                        .font(.system(size: 48, weight: .bold, design: .monospaced))
+                    TextField("Name this clip (optional)", text: $viewModel.title)
+                        .textFieldStyle(.roundedBorder)
+                        .padding(.horizontal)
+                    Button("Save") {
+                        Task { await viewModel.saveClip() }
                     }
-                } label: {
-                    Image(systemName: viewModel.isRecording ? "stop.circle.fill" : "mic.circle.fill")
-                        .font(.system(size: 80))
-                        .foregroundStyle(viewModel.isRecording ? Color.red : Color.accentColor)
+                    .buttonStyle(.borderedProminent)
+                    .disabled(viewModel.isSaving)
+                } else {
+                    Text(timeText)
+                        .font(.system(size: 48, weight: .bold, design: .monospaced))
+                    Text("Up to 30 seconds")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+
+                    Button {
+                        Task {
+                            if viewModel.isRecording {
+                                await viewModel.stopRecording()
+                            } else {
+                                await viewModel.startRecording()
+                            }
+                        }
+                    } label: {
+                        Image(systemName: viewModel.isRecording ? "stop.circle.fill" : "mic.circle.fill")
+                            .font(.system(size: 80))
+                            .foregroundStyle(viewModel.isRecording ? Color.red : Color.accentColor)
+                    }
+                    .disabled(viewModel.isSaving)
                 }
-                .disabled(viewModel.isSaving)
 
                 if viewModel.isSaving {
                     ProgressView("Saving...")

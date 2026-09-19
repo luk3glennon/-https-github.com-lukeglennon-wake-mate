@@ -227,7 +227,7 @@ private final class MockAlarmCallService: AlarmCallServicing, @unchecked Sendabl
     var fetchResult: Result<AlarmCall, Error> = .failure(TestError.boom)
     var downloadResult: Result<Data, Error> = .failure(TestError.boom)
 
-    func upload(fileURL: URL, durationSeconds: Double) async throws -> AlarmCall {
+    func upload(fileURL: URL, durationSeconds: Double, title: String?) async throws -> AlarmCall {
         try uploadResult.get()
     }
 

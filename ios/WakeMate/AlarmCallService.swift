@@ -8,9 +8,9 @@ protocol AlarmCallServicing: Sendable {
     /// Uploads the recording at `fileURL` via a presigned Storage upload
     /// URL (ticket 11: this initial upload is ticket 05's job, distinct
     /// from ticket 06's server-side per-Share copy), then inserts the
-    /// `alarm_calls` row and a matching `library_entries` row
-    /// (`source: created`).
-    func upload(fileURL: URL, durationSeconds: Double) async throws -> AlarmCall
+    /// `alarm_calls` row (with the user's optional `title`, nil if left
+    /// blank) and a matching `library_entries` row (`source: created`).
+    func upload(fileURL: URL, durationSeconds: Double, title: String?) async throws -> AlarmCall
     /// Every clip in the current user's Library, newest first.
     func listLibrary() async throws -> [LibraryClip]
     /// A single Alarm Call by id, used to resolve a `library_override`
@@ -31,7 +31,7 @@ final class SupabaseAlarmCallService: AlarmCallServicing {
         self.client = client
     }
 
-    func upload(fileURL: URL, durationSeconds: Double) async throws -> AlarmCall {
+    func upload(fileURL: URL, durationSeconds: Double, title: String?) async throws -> AlarmCall {
         let ownerID = try await client.auth.session.user.id
         let alarmCallID = UUID()
         // Swift's UUID string interpolation is uppercase, but Postgres's
@@ -57,7 +57,13 @@ final class SupabaseAlarmCallService: AlarmCallServicing {
         let alarmCall: AlarmCall = try await client
             .from("alarm_calls")
             .insert(
-                AlarmCallInsert(id: alarmCallID, ownerID: ownerID, storagePath: storagePath, durationSeconds: durationSeconds),
+                AlarmCallInsert(
+                    id: alarmCallID,
+                    ownerID: ownerID,
+                    storagePath: storagePath,
+                    durationSeconds: durationSeconds,
+                    title: title
+                ),
                 returning: .representation
             )
             .single()
@@ -75,7 +81,7 @@ final class SupabaseAlarmCallService: AlarmCallServicing {
     func listLibrary() async throws -> [LibraryClip] {
         let rows: [LibraryEntryRow] = try await client
             .from("library_entries")
-            .select("source, added_at, alarm_calls(id, storage_path, duration_seconds)")
+            .select("source, added_at, alarm_calls(id, storage_path, duration_seconds, title)")
             .order("added_at", ascending: false)
             .execute()
             .value
@@ -102,12 +108,14 @@ private struct AlarmCallInsert: Encodable {
     let ownerID: UUID
     let storagePath: String
     let durationSeconds: Double
+    let title: String?
 
     enum CodingKeys: String, CodingKey {
         case id
         case ownerID = "owner_id"
         case storagePath = "storage_path"
         case durationSeconds = "duration_seconds"
+        case title
     }
 }
 
@@ -138,11 +146,13 @@ private struct LibraryEntryRow: Decodable {
         let id: UUID
         let storagePath: String
         let durationSeconds: Double
+        let title: String?
 
         enum CodingKeys: String, CodingKey {
             case id
             case storagePath = "storage_path"
             case durationSeconds = "duration_seconds"
+            case title
         }
     }
 
@@ -152,7 +162,8 @@ private struct LibraryEntryRow: Decodable {
             storagePath: alarmCalls.storagePath,
             durationSeconds: alarmCalls.durationSeconds,
             source: source,
-            addedAt: addedAt
+            addedAt: addedAt,
+            title: alarmCalls.title
         )
     }
 }

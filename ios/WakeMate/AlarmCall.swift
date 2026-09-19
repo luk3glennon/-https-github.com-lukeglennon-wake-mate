@@ -10,6 +10,9 @@ struct AlarmCall: Identifiable, Codable, Sendable, Equatable {
     var storagePath: String
     var durationSeconds: Double
     var createdAt: Date
+    /// User-chosen name given at save time; nil if left blank, in which case
+    /// callers fall back to a timestamp (see `LibraryClip.displayTitle`).
+    var title: String? = nil
 
     enum CodingKeys: String, CodingKey {
         case id
@@ -17,6 +20,7 @@ struct AlarmCall: Identifiable, Codable, Sendable, Equatable {
         case storagePath = "storage_path"
         case durationSeconds = "duration_seconds"
         case createdAt = "created_at"
+        case title
     }
 }
 
@@ -35,10 +39,16 @@ struct LibraryClip: Identifiable, Codable, Sendable, Equatable {
     var durationSeconds: Double
     var source: LibrarySource
     var addedAt: Date
+    var title: String? = nil
 }
 
 extension LibraryClip {
+    /// The user's own title, if they gave one; otherwise a timestamp +
+    /// duration fallback so the clip is still distinguishable in a picker.
     var displayTitle: String {
+        if let title, !title.isEmpty {
+            return title
+        }
         let seconds = Int(durationSeconds.rounded())
         return "\(Self.dateFormatter.string(from: addedAt)) \u{00B7} \(seconds)s"
     }

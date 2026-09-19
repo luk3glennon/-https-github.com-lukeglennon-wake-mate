@@ -22,7 +22,10 @@ struct AlarmListView: View {
                     .font(.headline)
                 Spacer()
                 Button {
-                    isCreating = true
+                    Task {
+                        await viewModel.loadLibraryClips()
+                        isCreating = true
+                    }
                 } label: {
                     Label("Add Alarm", systemImage: "plus.circle.fill")
                 }
@@ -37,7 +40,10 @@ struct AlarmListView: View {
                 VStack(spacing: 8) {
                     ForEach(viewModel.alarms) { alarm in
                         AlarmRow(alarm: alarm, isBusy: viewModel.isBusy) {
-                            editingAlarm = alarm
+                            Task {
+                                await viewModel.loadLibraryClips()
+                                editingAlarm = alarm
+                            }
                         } onDelete: {
                             Task { await viewModel.deleteAlarm(alarm) }
                         }

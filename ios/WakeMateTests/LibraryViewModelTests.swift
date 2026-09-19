@@ -35,7 +35,7 @@ private enum TestError: Error, LocalizedError {
 private final class MockAlarmCallService: AlarmCallServicing, @unchecked Sendable {
     var libraryResult: Result<[LibraryClip], Error> = .success([])
 
-    func upload(fileURL: URL, durationSeconds: Double) async throws -> AlarmCall {
+    func upload(fileURL: URL, durationSeconds: Double, title: String?) async throws -> AlarmCall {
         throw TestError.boom
     }
 

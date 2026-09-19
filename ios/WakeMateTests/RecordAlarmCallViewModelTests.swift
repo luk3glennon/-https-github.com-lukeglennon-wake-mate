@@ -75,7 +75,23 @@ final class RecordAlarmCallViewModelTests: XCTestCase {
         XCTAssertFalse(viewModel.isRecording)
     }
 
-    func test_stopRecording_uploadsClip_andMarksSaved_onSuccess() async {
+    func test_stopRecording_entersReviewState_withoutUploading() async {
+        let audioRecorder = MockAudioRecorder()
+        audioRecorder.stopRecordingDuration = 4
+        let alarmCallService = MockAlarmCallService()
+        let viewModel = makeViewModel(audioRecorder: audioRecorder, alarmCallService: alarmCallService)
+        await viewModel.startRecording()
+
+        await viewModel.stopRecording()
+
+        XCTAssertFalse(viewModel.isRecording)
+        XCTAssertTrue(viewModel.isReviewingClip)
+        XCTAssertFalse(viewModel.didSave)
+        XCTAssertFalse(alarmCallService.didUpload)
+        XCTAssertEqual(viewModel.elapsedSeconds, 4)
+    }
+
+    func test_saveClip_uploadsWithTrimmedTitle_andMarksSaved_onSuccess() async {
         let audioRecorder = MockAudioRecorder()
         audioRecorder.stopRecordingDuration = 4
         let alarmCallService = MockAlarmCallService()
@@ -84,22 +100,41 @@ final class RecordAlarmCallViewModelTests: XCTestCase {
         )
         let viewModel = makeViewModel(audioRecorder: audioRecorder, alarmCallService: alarmCallService)
         await viewModel.startRecording()
-
         await viewModel.stopRecording()
+        viewModel.title = "  Morning pep talk  "
 
-        XCTAssertFalse(viewModel.isRecording)
+        await viewModel.saveClip()
+
         XCTAssertTrue(viewModel.didSave)
         XCTAssertEqual(alarmCallService.lastUploadDuration, 4)
+        XCTAssertEqual(alarmCallService.lastUploadTitle, "Morning pep talk")
     }
 
-    func test_stopRecording_surfacesError_whenUploadFails() async {
+    func test_saveClip_sendsNilTitle_whenTitleLeftBlank() async {
+        let audioRecorder = MockAudioRecorder()
+        let alarmCallService = MockAlarmCallService()
+        alarmCallService.uploadResult = .success(
+            AlarmCall(id: UUID(), ownerID: UUID(), storagePath: "user/clip.m4a", durationSeconds: 3, createdAt: Date())
+        )
+        let viewModel = makeViewModel(audioRecorder: audioRecorder, alarmCallService: alarmCallService)
+        await viewModel.startRecording()
+        await viewModel.stopRecording()
+
+        await viewModel.saveClip()
+
+        XCTAssertTrue(alarmCallService.didUpload)
+        XCTAssertNil(alarmCallService.lastUploadTitle)
+    }
+
+    func test_saveClip_surfacesError_whenUploadFails() async {
         let audioRecorder = MockAudioRecorder()
         let alarmCallService = MockAlarmCallService()
         alarmCallService.uploadResult = .failure(TestError.boom)
         let viewModel = makeViewModel(audioRecorder: audioRecorder, alarmCallService: alarmCallService)
         await viewModel.startRecording()
-
         await viewModel.stopRecording()
+
+        await viewModel.saveClip()
 
         XCTAssertFalse(viewModel.didSave)
         XCTAssertNotNil(viewModel.errorMessage)
@@ -115,6 +150,21 @@ final class RecordAlarmCallViewModelTests: XCTestCase {
 
         XCTAssertFalse(viewModel.isRecording)
         XCTAssertTrue(audioRecorder.didCancel)
+        XCTAssertFalse(alarmCallService.didUpload)
+    }
+
+    func test_cancelRecording_duringReview_discardsClipAndTitle() async {
+        let audioRecorder = MockAudioRecorder()
+        let alarmCallService = MockAlarmCallService()
+        let viewModel = makeViewModel(audioRecorder: audioRecorder, alarmCallService: alarmCallService)
+        await viewModel.startRecording()
+        await viewModel.stopRecording()
+        viewModel.title = "Draft"
+
+        viewModel.cancelRecording()
+
+        XCTAssertFalse(viewModel.isReviewingClip)
+        XCTAssertEqual(viewModel.title, "")
         XCTAssertFalse(alarmCallService.didUpload)
     }
 
@@ -165,10 +215,12 @@ private final class MockAlarmCallService: AlarmCallServicing, @unchecked Sendabl
     var uploadResult: Result<AlarmCall, Error> = .failure(TestError.boom)
     private(set) var didUpload = false
     private(set) var lastUploadDuration: Double?
+    private(set) var lastUploadTitle: String?
 
-    func upload(fileURL: URL, durationSeconds: Double) async throws -> AlarmCall {
+    func upload(fileURL: URL, durationSeconds: Double, title: String?) async throws -> AlarmCall {
         didUpload = true
         lastUploadDuration = durationSeconds
+        lastUploadTitle = title
         return try uploadResult.get()
     }
 
