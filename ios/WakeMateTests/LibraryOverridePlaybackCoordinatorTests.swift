@@ -159,6 +159,10 @@ private final class MockAlarmCallService: AlarmCallServicing, @unchecked Sendabl
         lastDownloadedStoragePath = storagePath
         return try downloadResult.get()
     }
+
+    func deleteClip(id: UUID, storagePath: String) async throws {
+        throw TestError.boom
+    }
 }
 
 private final class MockAlarmActivityTracker: AlarmActivityTracking, @unchecked Sendable {

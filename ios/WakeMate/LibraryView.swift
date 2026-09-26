@@ -6,6 +6,7 @@ struct LibraryView: View {
     let alarmCallService: AlarmCallServicing
     let consentService: ConsentServicing
     @State private var isRecording = false
+    @State private var pendingDeleteClip: LibraryClip?
 
     init(audioRecorder: AudioRecording, alarmCallService: AlarmCallServicing, consentService: ConsentServicing) {
         self.audioRecorder = audioRecorder
@@ -30,6 +31,11 @@ struct LibraryView: View {
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }
+                        .swipeActions {
+                            Button("Delete", role: .destructive) {
+                                pendingDeleteClip = clip
+                            }
+                        }
                     }
                 }
 
@@ -51,6 +57,26 @@ struct LibraryView: View {
             }
         }
         .task { await viewModel.load() }
+        .confirmationDialog(
+            "Delete this recording?",
+            isPresented: Binding(
+                get: { pendingDeleteClip != nil },
+                set: { if !$0 { pendingDeleteClip = nil } }
+            ),
+            titleVisibility: .visible
+        ) {
+            Button("Delete", role: .destructive) {
+                if let clip = pendingDeleteClip {
+                    Task { await viewModel.deleteClip(clip) }
+                }
+                pendingDeleteClip = nil
+            }
+            Button("Cancel", role: .cancel) {
+                pendingDeleteClip = nil
+            }
+        } message: {
+            Text("If an alarm is currently using this recording, that alarm will switch back to its default sound.")
+        }
         .sheet(isPresented: $isRecording) {
             RecordAlarmCallView(
                 audioRecorder: audioRecorder,

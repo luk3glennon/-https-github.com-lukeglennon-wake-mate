@@ -20,6 +20,12 @@ protocol AlarmCallServicing: Sendable {
     func fetchAlarmCall(id: UUID) async throws -> AlarmCall
     /// Downloads a clip's raw audio data so it can be played locally.
     func downloadClipData(storagePath: String) async throws -> Data
+    /// Permanently deletes the clip: its `alarm_calls` row (which cascades
+    /// to the matching `library_entries` row) and its Storage object. A DB
+    /// trigger resets any Alarm using it as a library_override sound back
+    /// to auto_play, so this never leaves an Alarm silently pointing at a
+    /// clip that no longer exists.
+    func deleteClip(id: UUID, storagePath: String) async throws
 }
 
 final class SupabaseAlarmCallService: AlarmCallServicing {
@@ -100,6 +106,19 @@ final class SupabaseAlarmCallService: AlarmCallServicing {
 
     func downloadClipData(storagePath: String) async throws -> Data {
         try await client.storage.from(Self.bucket).download(path: storagePath)
+    }
+
+    func deleteClip(id: UUID, storagePath: String) async throws {
+        // DB row first: if this fails, the clip and its Storage object are
+        // still in a consistent state. If the Storage removal below fails
+        // after this succeeds, the row (and any dangling reference to it)
+        // is already gone - worst case is an orphaned Storage object.
+        try await client
+            .from("alarm_calls")
+            .delete()
+            .eq("id", value: id)
+            .execute()
+        _ = try await client.storage.from(Self.bucket).remove(paths: [storagePath])
     }
 }
 

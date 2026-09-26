@@ -245,6 +245,10 @@ private final class MockAlarmCallService: AlarmCallServicing, @unchecked Sendabl
     func downloadClipData(storagePath: String) async throws -> Data {
         try downloadResult.get()
     }
+
+    func deleteClip(id: UUID, storagePath: String) async throws {
+        throw TestError.boom
+    }
 }
 
 private final class MockSyncCoordinator: AlarmSyncCoordinating, @unchecked Sendable {
