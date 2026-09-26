@@ -24,6 +24,27 @@ worth opening if this summary or the current ticket points at one by name.
 - **04 — Alarm scheduling core (AlarmKit).** CLOSED 2026-09-14. Create/
   edit/delete Alarms; firing confirmed on-device through force-quit and
   silent/Focus mode; snooze and dismiss confirmed on-device. Nothing open.
+- **05 — Alarm Call recording & Library.** CLOSED 2026-09-14 (checklist
+  updated 2026-09-26 — it had been left unchecked despite shipping). Record
+  a short clip, save it to the Library, and set an Alarm to play it
+  directly; consent logging and the mode-reset safety net both verified.
+  Nothing open.
+- **05 follow-up — fix: clip-titling/delete migrations never applied.**
+  CLOSED 2026-09-26. User saw an empty Library, couldn't title a clip, and
+  a recorded clip wouldn't show up on alarm creation — all traced (via a
+  newly-connected read-only Supabase database link) to two migrations that
+  were written but never actually run against the live database. Ran them,
+  verified in the database, confirmed fixed on-device. No app code change,
+  no new TestFlight build needed.
+
+- **06 — Share sending & Queue population.** CLOSED 2026-09-26. Sharing a
+  Library clip fans it out to every one of the recipient's current Alarms
+  (new `shares`/`queue_entries`/`device_tokens` tables), a Queue-count badge
+  shows on each Alarm, and a hand-rolled `pg_net` webhook sends a direct
+  APNs push on upload. Not yet verified on-device (no local Xcode; needs a
+  CI build). Open: an actual push notification needs the one-time Apple
+  Developer Portal "Push Notifications" capability step, same as the
+  TestFlight signing setup in tickets 01/02 — the code is ready and waiting.
 
 ## How to add an entry
 

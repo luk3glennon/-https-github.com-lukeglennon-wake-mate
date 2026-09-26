@@ -20,6 +20,7 @@ struct HomeView: View {
     let alarmService: AlarmServicing
     let alarmSyncCoordinator: AlarmSyncCoordinating
     let alarmCallService: AlarmCallServicing
+    let shareService: ShareServicing
     let audioRecorder: AudioRecording
     let consentService: ConsentServicing
     let onSignOut: () -> Void
@@ -32,6 +33,7 @@ struct HomeView: View {
         alarmService: AlarmServicing,
         alarmSyncCoordinator: AlarmSyncCoordinating,
         alarmCallService: AlarmCallServicing,
+        shareService: ShareServicing,
         audioRecorder: AudioRecording,
         consentService: ConsentServicing,
         onSignOut: @escaping () -> Void
@@ -42,6 +44,7 @@ struct HomeView: View {
         self.alarmService = alarmService
         self.alarmSyncCoordinator = alarmSyncCoordinator
         self.alarmCallService = alarmCallService
+        self.shareService = shareService
         self.audioRecorder = audioRecorder
         self.consentService = consentService
         self.onSignOut = onSignOut
@@ -81,7 +84,13 @@ struct HomeView: View {
             FriendOnboardingView(friendService: friendService, onFinish: { isAddingFriend = false })
         }
         .sheet(isPresented: $isShowingLibrary) {
-            LibraryView(audioRecorder: audioRecorder, alarmCallService: alarmCallService, consentService: consentService)
+            LibraryView(
+                audioRecorder: audioRecorder,
+                alarmCallService: alarmCallService,
+                shareService: shareService,
+                friendService: friendService,
+                consentService: consentService
+            )
         }
     }
 

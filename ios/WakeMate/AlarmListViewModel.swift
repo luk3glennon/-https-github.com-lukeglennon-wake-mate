@@ -4,6 +4,7 @@ import Foundation
 final class AlarmListViewModel: ObservableObject {
     @Published private(set) var alarms: [Alarm] = []
     @Published private(set) var libraryClips: [LibraryClip] = []
+    @Published private(set) var queueCounts: [UUID: Int] = [:]
     @Published var errorMessage: String?
     @Published private(set) var isBusy = false
 
@@ -21,6 +22,14 @@ final class AlarmListViewModel: ObservableObject {
         do {
             alarms = try await alarmService.listAlarms()
             await syncCoordinator.sync(alarms: alarms)
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    func loadQueueCounts() async {
+        do {
+            queueCounts = try await alarmService.queueCounts()
         } catch {
             errorMessage = error.localizedDescription
         }

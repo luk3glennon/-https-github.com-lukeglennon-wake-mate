@@ -424,3 +424,26 @@ entrypoint = "./functions/health/index.ts"
 # Specifies static files to be bundled with the function. Supports glob patterns.
 # For example, if you want to serve static HTML pages in your function:
 # static_files = [ "./functions/health/*.html" ]
+
+[functions.create-share]
+enabled = true
+verify_jwt = true
+import_map = "./functions/create-share/deno.json"
+entrypoint = "./functions/create-share/index.ts"
+
+[functions.get-share-download-url]
+enabled = true
+verify_jwt = true
+import_map = "./functions/get-share-download-url/deno.json"
+entrypoint = "./functions/get-share-download-url/index.ts"
+
+# verify_jwt is off here: this function is invoked by the shares_after_upload
+# DB trigger (pg_net's net.http_post, see that migration's header comment),
+# which has no way to attach a signed project JWT without embedding the
+# service-role secret in a committed migration file. See the migration for
+# why that's an acceptable trade-off for this function specifically.
+[functions.share-notify]
+enabled = true
+verify_jwt = false
+import_map = "./functions/share-notify/deno.json"
+entrypoint = "./functions/share-notify/index.ts"

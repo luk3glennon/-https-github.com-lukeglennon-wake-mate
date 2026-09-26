@@ -21,6 +21,9 @@ protocol AlarmServicing: Sendable {
         libraryOverrideAlarmCallID: UUID?
     ) async throws -> Alarm
     func deleteAlarm(id: UUID) async throws
+    /// How many Queue entries each Alarm currently has (ticket 06's "Queue
+    /// count" badge) — keyed by alarm id, alarms with no entries omitted.
+    func queueCounts() async throws -> [UUID: Int]
 }
 
 final class SupabaseAlarmService: AlarmServicing {
@@ -98,6 +101,24 @@ final class SupabaseAlarmService: AlarmServicing {
             .delete()
             .eq("id", value: id)
             .execute()
+    }
+
+    func queueCounts() async throws -> [UUID: Int] {
+        let rows: [QueueCountRow] = try await client
+            .rpc("alarm_queue_counts")
+            .execute()
+            .value
+        return Dictionary(uniqueKeysWithValues: rows.map { ($0.alarmID, $0.queueCount) })
+    }
+}
+
+private struct QueueCountRow: Decodable {
+    let alarmID: UUID
+    let queueCount: Int
+
+    enum CodingKeys: String, CodingKey {
+        case alarmID = "alarm_id"
+        case queueCount = "queue_count"
     }
 }
 

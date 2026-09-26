@@ -39,7 +39,7 @@ struct AlarmListView: View {
             } else {
                 VStack(spacing: 8) {
                     ForEach(viewModel.alarms) { alarm in
-                        AlarmRow(alarm: alarm, isBusy: viewModel.isBusy) {
+                        AlarmRow(alarm: alarm, queueCount: viewModel.queueCounts[alarm.id] ?? 0, isBusy: viewModel.isBusy) {
                             Task {
                                 await viewModel.loadLibraryClips()
                                 editingAlarm = alarm
@@ -60,6 +60,7 @@ struct AlarmListView: View {
         .task {
             await viewModel.load()
             await viewModel.loadLibraryClips()
+            await viewModel.loadQueueCounts()
         }
         .sheet(isPresented: $isCreating) {
             AlarmFormView(mode: .create, libraryClips: viewModel.libraryClips) { label, wakeTime, repeatDays, alarmMode, clipID in
@@ -89,6 +90,7 @@ struct AlarmListView: View {
 
 private struct AlarmRow: View {
     let alarm: Alarm
+    let queueCount: Int
     let isBusy: Bool
     let onEdit: () -> Void
     let onDelete: () -> Void
@@ -108,6 +110,15 @@ private struct AlarmRow: View {
                     .foregroundStyle(.secondary)
             }
             Spacer()
+            if queueCount > 0 {
+                Text("\(queueCount)")
+                    .font(.caption.bold())
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(Color.blue)
+                    .clipShape(Capsule())
+            }
             Button("Edit", action: onEdit)
                 .buttonStyle(.bordered)
                 .disabled(isBusy)

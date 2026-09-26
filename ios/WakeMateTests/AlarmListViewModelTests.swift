@@ -141,6 +141,28 @@ final class AlarmListViewModelTests: XCTestCase {
         XCTAssertNotNil(viewModel.errorMessage)
     }
 
+    func test_loadQueueCounts_populatesCounts() async {
+        let service = MockAlarmService()
+        let alarmID = UUID()
+        service.queueCountsToReturn = [alarmID: 3]
+        let viewModel = makeViewModel(alarmService: service)
+
+        await viewModel.loadQueueCounts()
+
+        XCTAssertEqual(viewModel.queueCounts[alarmID], 3)
+    }
+
+    func test_loadQueueCounts_surfacesError_onFailure() async {
+        let service = MockAlarmService()
+        service.queueCountsResult = .failure(TestError.boom)
+        let viewModel = makeViewModel(alarmService: service)
+
+        await viewModel.loadQueueCounts()
+
+        XCTAssertTrue(viewModel.queueCounts.isEmpty)
+        XCTAssertNotNil(viewModel.errorMessage)
+    }
+
     private func makeViewModel(
         alarmService: AlarmServicing,
         syncCoordinator: AlarmSyncCoordinating = MockSyncCoordinator(),
@@ -185,6 +207,8 @@ private final class MockAlarmService: AlarmServicing, @unchecked Sendable {
     var createResult: Result<Alarm, Error> = .failure(TestError.boom)
     var updateResult: Result<Alarm, Error> = .failure(TestError.boom)
     var deleteError: Error?
+    var queueCountsToReturn: [UUID: Int] = [:]
+    var queueCountsResult: Result<[UUID: Int], Error>?
     private(set) var lastCreateMode: AlarmMode?
     private(set) var lastCreateLibraryOverrideAlarmCallID: UUID?
 
@@ -217,6 +241,13 @@ private final class MockAlarmService: AlarmServicing, @unchecked Sendable {
 
     func deleteAlarm(id: UUID) async throws {
         if let deleteError { throw deleteError }
+    }
+
+    func queueCounts() async throws -> [UUID: Int] {
+        if let queueCountsResult {
+            return try queueCountsResult.get()
+        }
+        return queueCountsToReturn
     }
 }
 

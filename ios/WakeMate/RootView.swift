@@ -12,6 +12,7 @@ struct RootView: View {
         alarmService: AlarmServicing,
         alarmSyncCoordinator: AlarmSyncCoordinating,
         alarmCallService: AlarmCallServicing,
+        shareService: ShareServicing,
         audioRecorder: AudioRecording,
         consentService: ConsentServicing,
         libraryOverridePlayback: LibraryOverridePlaybackCoordinating
@@ -23,6 +24,7 @@ struct RootView: View {
                 alarmService: alarmService,
                 alarmSyncCoordinator: alarmSyncCoordinator,
                 alarmCallService: alarmCallService,
+                shareService: shareService,
                 audioRecorder: audioRecorder,
                 consentService: consentService
             )
@@ -48,6 +50,7 @@ struct RootView: View {
                     alarmService: appState.alarmService,
                     alarmSyncCoordinator: appState.alarmSyncCoordinator,
                     alarmCallService: appState.alarmCallService,
+                    shareService: appState.shareService,
                     audioRecorder: appState.audioRecorder,
                     consentService: appState.consentService,
                     onSignOut: appState.signOut
@@ -76,6 +79,7 @@ final class AppState: ObservableObject {
     let alarmService: AlarmServicing
     let alarmSyncCoordinator: AlarmSyncCoordinating
     let alarmCallService: AlarmCallServicing
+    let shareService: ShareServicing
     let audioRecorder: AudioRecording
     let consentService: ConsentServicing
 
@@ -91,6 +95,7 @@ final class AppState: ObservableObject {
         alarmService: AlarmServicing,
         alarmSyncCoordinator: AlarmSyncCoordinating,
         alarmCallService: AlarmCallServicing,
+        shareService: ShareServicing,
         audioRecorder: AudioRecording,
         consentService: ConsentServicing
     ) {
@@ -99,6 +104,7 @@ final class AppState: ObservableObject {
         self.alarmService = alarmService
         self.alarmSyncCoordinator = alarmSyncCoordinator
         self.alarmCallService = alarmCallService
+        self.shareService = shareService
         self.audioRecorder = audioRecorder
         self.consentService = consentService
     }
