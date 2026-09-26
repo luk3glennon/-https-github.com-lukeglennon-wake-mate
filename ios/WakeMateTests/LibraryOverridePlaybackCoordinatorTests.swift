@@ -132,6 +132,10 @@ private final class MockAlarmService: AlarmServicing, @unchecked Sendable {
     }
 
     func deleteAlarm(id: UUID) async throws {}
+
+    func queueCounts() async throws -> [UUID: Int] {
+        [:]
+    }
 }
 
 private final class MockAlarmCallService: AlarmCallServicing, @unchecked Sendable {
