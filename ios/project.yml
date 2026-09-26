@@ -58,6 +58,12 @@ targets:
         VERSIONING_SYSTEM: apple-generic
         SWIFT_VERSION: "6.0"
         TARGETED_DEVICE_FAMILY: "1" # iPhone only for MVP
+        # Ticket 06: declares the Push Notifications capability the app
+        # needs. Apple will refuse to sign a build with this entitlement
+        # until "Push Notifications" is also turned on for
+        # com.wakemate.alarmcall's App ID in the Developer Portal
+        # (one-time, manual — see PROGRESS.md).
+        CODE_SIGN_ENTITLEMENTS: WakeMate/WakeMate.entitlements
       configs:
         # Set explicitly rather than inherited: Xcode's *project template*
         # puts dwarf-with-dsym in Release, but the build system's default
